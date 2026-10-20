@@ -1,0 +1,54 @@
+# Portofolio referensi (dilarang commit & push)
+Portfolio-Jundan/
+Safwan-Web-Portofolio/
+
+# Environment and secrets
+.env
+.env.*
+*.env
+*.env.local
+
+# Node & Frontend Build
+node_modules/
+frontend/node_modules/
+dist/
+dist-ssr/
+frontend/dist/
+frontend/dist-ssr/
+.output/
+frontend/.output/
+.tanstack/
+frontend/.tanstack/
+.nitro/
+frontend/.nitro/
+.wrangler/
+frontend/.wrangler/
+.vinxi/
+frontend/.vinxi/
+__unconfig*
+frontend/__unconfig*
+*.local
+
+# Go Binaries
+backend/*.exe
+backend/server.exe
+*.exe
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+frontend/.vscode/
+
+# Root scratch / raw asset files (already preserved in frontend/public)
+/*.bak
+/*.tmp
+/Hispter_Falah.jpg
+/almet.svg
+/copal.jpeg
+/ref1.png
+/ref2.jpg
+/tes2.svg
+/hipster.svg
+/hipster.svg.bak
+/hero_img.jpg
