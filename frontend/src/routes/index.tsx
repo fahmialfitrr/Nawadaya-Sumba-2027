@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import HomeHero from '../components/HomeHero'
 import HomeAbout from '../components/HomeAbout'
 import HomeProkerGrid from '../components/HomeProkerGrid'
@@ -7,6 +7,12 @@ import HomeArticles from '../components/HomeArticles'
 import HomeGuestbook from '../components/HomeGuestbook'
 
 export const Route = createFileRoute('/')({
+  beforeLoad: () => {
+    // ponytail: sementara hanya bagian anggota yang dibuka, redirect beranda ke /anggota
+    throw redirect({
+      to: '/anggota',
+    })
+  },
   component: HomePage,
 })
 

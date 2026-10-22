@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Link, Scripts, createRootRoute } from '@tanstack/react-router'
 import Footer from '../components/Footer'
 import Navbar from '../components/Navbar'
 
@@ -38,7 +38,34 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  notFoundComponent: NotFoundPage,
 })
+
+function NotFoundPage() {
+  return (
+    <div className="w-full min-h-[70vh] flex flex-col items-center justify-center px-4 py-24 bg-dot-grid">
+      <div className="relative w-full max-w-lg bg-white border border-slate-200/90 rounded-3xl p-8 sm:p-10 shadow-[0_12px_36px_rgba(0,0,0,0.06)] flex flex-col items-center text-center">
+        <span className="font-montserrat font-black text-6xl sm:text-7xl text-[#3057a6] tracking-tight mb-2">
+          404
+        </span>
+        <h1 className="font-montserrat font-bold text-xl sm:text-2xl text-slate-800 mb-3">
+          Halaman Belum Tersedia
+        </h1>
+
+        <p className="font-inter text-slate-500 text-xs sm:text-sm leading-relaxed max-w-sm mb-8">
+          Halaman ini belum dibuka untuk umum. Saat ini hanya menu <span className="font-semibold text-slate-700">Anggota KKN</span> yang dapat diakses.
+        </p>
+
+        <Link
+          to="/anggota"
+          className="inline-flex items-center justify-center gap-2 bg-[#ffab2f] hover:bg-[#e69b2a] border border-[#ffab2f] text-slate-900 font-inter font-semibold text-xs sm:text-sm px-6 py-3 rounded-full shadow-[0px_2px_4px_rgba(16,24,40,0.08)] transition-all hover:-translate-y-0.5 no-underline"
+        >
+          <span>Buka Halaman Anggota</span>
+        </Link>
+      </div>
+    </div>
+  )
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
