@@ -1,7 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, notFound } from '@tanstack/react-router'
 import CeritaSection from '../components/CeritaSection'
 
 export const Route = createFileRoute('/cerita')({
+  beforeLoad: () => {
+    // ponytail: sementara dinonaktifkan (404), hapus baris ini saat cerita siap dibuka
+    throw notFound()
+  },
   component: CeritaPage,
 })
 
