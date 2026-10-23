@@ -20,6 +20,11 @@ const CONFIG = {
   repelRadius: 260,
 }
 
+// Hemat GPU: kanvas layar penuh dirender maksimal 1x piksel dan 30 fps
+// (gelombangnya lambat, selisihnya tak terlihat)
+const MAX_DPR = 1
+const FRAME_MS = 1000 / 30
+
 interface ParticleCursorProps {
   className?: string
 }
@@ -52,12 +57,12 @@ export default function ParticleCursor({ className = '' }: ParticleCursorProps) 
     camera.lookAt(0, 0, 0)
 
     // 2. WebGL Renderer
-    const dpr = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2)
+    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR)
     const renderer = new THREE.WebGLRenderer({
       canvas,
       alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance',
+      antialias: false,
+      powerPreference: 'low-power',
     })
     renderer.setPixelRatio(dpr)
     renderer.setSize(width, height)
@@ -337,7 +342,8 @@ export default function ParticleCursor({ className = '' }: ParticleCursorProps) 
       camera.bottom = -height * 0.5
       camera.updateProjectionMatrix()
       renderer.setSize(width, height)
-      uniforms.uDpr.value = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2)
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR))
+      uniforms.uDpr.value = renderer.getPixelRatio()
     }
 
     window.addEventListener('resize', handleResize, { passive: true })
@@ -345,16 +351,23 @@ export default function ParticleCursor({ className = '' }: ParticleCursorProps) 
     let isVisible = true
     const onVisibilityChange = () => {
       isVisible = !document.hidden
+      if (isVisible) lastFrame = 0
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
 
     // 7. Animation Loop
     let animationFrameId: number
+    let lastFrame = 0
 
     const animate = (currentTime: number) => {
       animationFrameId = requestAnimationFrame(animate)
 
       if (!isVisible) return
+      if (currentTime - lastFrame < FRAME_MS - 2) return
+      // Faktor lerp semula dibuat untuk 60 fps; skalakan dengan selisih waktu sebenarnya
+      const step = lastFrame === 0 ? 1 : Math.min((currentTime - lastFrame) / (1000 / 60), 4)
+      lastFrame = currentTime
+      const ease = (k: number) => 1 - Math.pow(1 - k, step)
 
       const t = currentTime * 0.001 * CONFIG.timeSpeed
 
@@ -365,20 +378,20 @@ export default function ParticleCursor({ className = '' }: ParticleCursorProps) 
           mouse.y = mouse.targetY
         } else {
           // Lerp halus meluncur santai tanpa sentakan mendadak
-          mouse.x += (mouse.targetX - mouse.x) * 0.08
-          mouse.y += (mouse.targetY - mouse.y) * 0.08
+          mouse.x += (mouse.targetX - mouse.x) * ease(0.08)
+          mouse.y += (mouse.targetY - mouse.y) * ease(0.08)
         }
-        mouse.strength += (1.0 - mouse.strength) * 0.05
+        mouse.strength += (1.0 - mouse.strength) * ease(0.05)
       } else {
-        mouse.strength *= 0.92
+        mouse.strength *= Math.pow(0.92, step)
       }
 
       // Pergerakan pusat blob mengikuti kursor:
       // Amplitudo dinaikkan ke 0.55, lerp mengalir smooth 0.09
       const targetFocalX = mouse.active ? mouse.x * 0.55 : 0
       const targetFocalY = mouse.active ? mouse.y * 0.55 : 0
-      focalX += (targetFocalX - focalX) * 0.09
-      focalY += (targetFocalY - focalY) * 0.09
+      focalX += (targetFocalX - focalX) * ease(0.09)
+      focalY += (targetFocalY - focalY) * ease(0.09)
 
       uniforms.uTime.value = t
       uniforms.uMouse.value.set(mouse.x, mouse.y)

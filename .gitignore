@@ -50,3 +50,6 @@ frontend/.vscode/
 
 # Pengaturan Claude Code pribadi (tidak di-commit)
 .claude/settings.local.json
+
+# Raw photo asset exports
+frontend/src/components/Foto/

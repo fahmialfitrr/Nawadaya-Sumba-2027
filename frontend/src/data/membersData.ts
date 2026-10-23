@@ -11,7 +11,7 @@ export interface Member {
 }
 
 const DEFAULT_CV = 'https://drive.google.com/file/d/1dERAkdjWsF8jG6lda6rb7cPX7UDnDH_8/view?usp=sharing'
-const DEFAULT_PHOTO = '/hipster.svg'
+const DEFAULT_PHOTO = '/members/placeholder.svg'
 
 export const MEMBERS_DATA: Member[] = [
   // ==========================================
@@ -40,7 +40,7 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'unit',
     faculty: 'Fakultas Filsafat',
     major: 'Filsafat',
-    photo: DEFAULT_PHOTO,
+    photo: '/members/nabiel-s-rajasa.webp',
     cvUrl: DEFAULT_CV,
   },
 
@@ -55,8 +55,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'saintek',
     faculty: 'Fakultas Teknik',
     major: 'Teknik Industri',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/ananda-constelline.webp',
+    cvUrl: 'https://drive.google.com/file/d/1axtH46Urm4idqQ5Wh0jAw313MPD9CQMI/view?usp=sharing',
   },
   {
     id: 'm-kormater-soshum',
@@ -66,8 +66,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'soshum',
     faculty: 'Fakultas Ilmu Sosial dan Ilmu Politik',
     major: 'Pembangunan Sosial dan Kesejahteraan (PSDK)',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/mumtaz-ayyasy.webp',
+    cvUrl: 'https://drive.google.com/file/d/1Abg0-WYozouCcJYP6x3ggGy9y_PGPy4H/view?usp=sharing',
   },
   {
     id: 'm-kormater-medika',
@@ -77,8 +77,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'medika',
     faculty: 'Fakultas Kedokteran Gigi',
     major: 'Kedokteran Gigi',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/vania-husna.webp',
+    cvUrl: 'https://drive.google.com/file/d/1NEv4JqYZX-cydZUSJ19z2Q36hgT1ZAqj/view?usp=sharing',
   },
   {
     id: 'm-kormater-agro',
@@ -88,8 +88,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'agro',
     faculty: 'Fakultas Teknologi Pertanian',
     major: 'Teknologi Industri Pertanian',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/fausta-ryanda.webp',
+    cvUrl: 'https://drive.google.com/file/d/1pRl4SQm0DDLzYU0h1tVBraAxcI1w0rRU/view?usp=sharing',
   },
 
   // ==========================================
@@ -103,8 +103,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'saintek',
     faculty: 'Fakultas Geografi',
     major: 'Pembangunan Wilayah',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/rachel-zalika.webp',
+    cvUrl: 'https://drive.google.com/file/d/1YvRVoj-8iyPAJP0uhJH894V2Up8UN8wj/view?usp=sharing',
   },
   {
     id: 'm-st-2',
@@ -114,8 +114,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'saintek',
     faculty: 'Sekolah Vokasi',
     major: 'Rekayasa Perangkat Lunak',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/falah-auladi.webp',
+    cvUrl: 'https://drive.google.com/file/d/18g94URDf4aNPkHJIFkiYnPF_pw9gz73F/view?usp=sharing',
   },
   {
     id: 'm-st-3',
@@ -125,7 +125,7 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'saintek',
     faculty: 'Fakultas Teknik',
     major: 'Teknik Sipil',
-    photo: DEFAULT_PHOTO,
+    photo: '/members/rafa-ghifari.webp',
     cvUrl: DEFAULT_CV,
   },
   {
@@ -136,7 +136,7 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'saintek',
     faculty: 'Fakultas Biologi',
     major: 'Biologi',
-    photo: DEFAULT_PHOTO,
+    photo: '/members/vera-yustifa.webp',
     cvUrl: DEFAULT_CV,
   },
   {
@@ -158,8 +158,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'saintek',
     faculty: 'Fakultas MIPA',
     major: 'Elektronika dan Instrumentasi',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/fahmi-alfitra.webp',
+    cvUrl: 'https://drive.google.com/file/d/1wWS0N9aQH9_TbM9RP_o2yy0sr10C1G6k/view?usp=sharing',
   },
 
   // ==========================================
@@ -184,8 +184,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'soshum',
     faculty: 'Fakultas Ilmu Sosial dan Ilmu Politik',
     major: 'Hubungan Internasional',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/hilkia-rahadyanta.webp',
+    cvUrl: 'https://drive.google.com/file/d/1kLSq1RpVoyr6njIR5mWorAFcH8ESKbGQ/view?usp=sharing',
   },
   {
     id: 'm-so-3',
@@ -195,8 +195,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'soshum',
     faculty: 'Fakultas Ilmu Sosial dan Ilmu Politik',
     major: 'Manajemen dan Kebijakan Publik',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/emil-rahadian.webp',
+    cvUrl: 'https://drive.google.com/file/d/1okcYDxnhKFhmcYwUlDFyxk_Rv9tb6abQ/view?usp=sharing',
   },
   {
     id: 'm-so-4',
@@ -217,8 +217,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'soshum',
     faculty: 'Fakultas Ilmu Sosial dan Ilmu Politik',
     major: 'Ilmu Komunikasi',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/pradytya-andri.webp',
+    cvUrl: 'https://drive.google.com/file/d/12gPE3necBZlR3TZ6NyCZ-nEj38pynd9E/view?usp=sharing',
   },
   {
     id: 'm-so-6',
@@ -228,8 +228,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'soshum',
     faculty: 'Fakultas Ilmu Sosial dan Ilmu Politik',
     major: 'Ilmu Komunikasi',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/pramuraya-wisesa.webp',
+    cvUrl: 'https://drive.google.com/file/d/1dC7PoggYiJyRBUpwy-mvK4C6K9Yck4EB/view?usp=sharing',
   },
 
   // ==========================================
@@ -243,8 +243,8 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'medika',
     faculty: 'Fakultas Kedokteran, Kesehatan Masyarakat, dan Keperawatan',
     major: 'Ilmu Keperawatan',
-    photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    photo: '/members/tsani-nur-fauziah.webp',
+    cvUrl: 'https://drive.google.com/file/d/1WfpH4cv9_Mq-aDAuljOyNgcWYKze8hb7/view?usp=sharing',
   },
   {
     id: 'm-me-2',
@@ -254,7 +254,22 @@ export const MEMBERS_DATA: Member[] = [
     cluster: 'medika',
     faculty: 'Fakultas Farmasi',
     major: 'Farmasi',
+    photo: '/members/azzahra-aurelya.webp',
+    cvUrl: 'https://drive.google.com/file/d/15ECy_YF7sUu6ljGMZ3ECQLF3ztBOc6bB/view?usp=sharing',
+  },
+
+  // ==========================================
+  // KLUSTER AGRO
+  // ==========================================
+  {
+    id: 'm-ag-1',
+    name: 'Ikko Rahmat',
+    role: 'Anggota Kluster Agro',
+    hierarchy: 'member',
+    cluster: 'agro',
+    faculty: 'Fakultas Teknologi Pertanian',
+    major: 'Manajemen Sumber Daya Akuatik',
     photo: DEFAULT_PHOTO,
-    cvUrl: DEFAULT_CV,
+    cvUrl: 'https://drive.google.com/file/d/1TjYj1NseyxVFujN1OI7sN68JZS3zufO9/view?usp=sharing',
   },
 ]
