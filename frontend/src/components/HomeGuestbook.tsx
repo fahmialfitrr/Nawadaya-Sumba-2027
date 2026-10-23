@@ -1,140 +1,124 @@
 import React, { useState } from 'react'
 import { Send, CheckCircle2 } from 'lucide-react'
-import { ScrambleText } from './ScrambleText'
 import { Button } from './ui/Button'
+import SectionHeading from './SectionHeading'
+import { Reveal } from './ScrollPhoto'
+import { CONTACT_EMAIL } from '../data/places'
+
+const inputClass =
+  'w-full px-4 py-3 rounded-xl font-inter text-xs sm:text-sm bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#3057a6] focus:ring-4 focus:ring-[#3057a6]/10 transition'
 
 export default function HomeGuestbook() {
   const [name, setName] = useState('')
   const [affiliation, setAffiliation] = useState('')
   const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'success'>('idle')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim() || !message.trim()) return
 
-    setLoading(true)
-    try {
-      const res = await fetch('http://localhost:8080/api/guestbook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          affiliation: affiliation.trim() || 'Masyarakat Umum',
-          message: message.trim(),
-        }),
-      })
+    // Situs statis: pesan dikirim lewat aplikasi email pengunjung
+    const subject = encodeURIComponent('Pesan untuk KKN Nawadaya Sumba')
+    const text = encodeURIComponent(`${message.trim()}
 
-      if (res.ok) {
-        setSuccess(true)
-        setName('')
-        setAffiliation('')
-        setMessage('')
-        setTimeout(() => setSuccess(false), 4000)
-      }
-    } catch (err) {
-      console.warn('Backend fallback submit:', err)
-      setSuccess(true)
-      setName('')
-      setAffiliation('')
-      setMessage('')
-      setTimeout(() => setSuccess(false), 4000)
-    } finally {
-      setLoading(false)
-    }
+— ${name.trim()}, ${affiliation.trim() || 'Masyarakat Umum'}`)
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${text}`
+    setStatus('success')
+    setName('')
+    setAffiliation('')
+    setMessage('')
   }
 
   return (
-    <section id="guestbook" className="w-full py-16 md:py-24 px-4 sm:px-6 md:px-8 max-w-4xl mx-auto">
-      
-      {/* Header */}
-      <div className="flex flex-col items-center gap-3 text-center mb-10">
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-          <span className="font-montserrat font-bold text-[28px] sm:text-[40px] md:text-[50px] text-slate-900 leading-none">
-            Buku Tamu &
-          </span>
-          <div className="bg-[#2563eb] border-2 border-[#1d4ed8] px-3.5 py-1 -rotate-1 rounded-sm shadow-[0_2px_8px_rgba(37,99,235,0.25)] inline-flex items-center">
-            <span className="font-montserrat font-black text-white text-[26px] sm:text-[38px] md:text-[46px] leading-none tracking-tight">
-              <ScrambleText text="Pesan Doa" />
-            </span>
-          </div>
-        </div>
-        <p className="font-montserrat font-medium text-xs sm:text-sm text-slate-500 max-w-lg">
-          Kirimkan salam kehangatan, aspirasi, atau doa untuk tim mahasiswa KKN UGM di Sumba Barat Daya.
-        </p>
-      </div>
+    <section id="guestbook" className="w-full py-24 md:py-32 px-4 sm:px-6 md:px-8 max-w-4xl mx-auto scroll-mt-20">
 
-      {/* Form Container in Safwan Paper Card Style */}
-      <div className="relative group w-full">
+      <SectionHeading
+        index="06"
+        eyebrow="Buku Tamu"
+        lead="Kirim"
+        highlight="Pesan & Doa"
+        color="#2563eb"
+        border="#1d4ed8"
+        align="center"
+        className="mb-12"
+      >
+        Kirimkan salam, aspirasi, atau doa untuk tim mahasiswa KKN UGM di Rada Mata, Sumba Barat Daya.
+      </SectionHeading>
+
+      <Reveal delay={0.1} className="relative w-full">
         <div className="absolute inset-0 bg-slate-300 border border-slate-300 rounded-3xl rotate-[1deg] translate-x-1 translate-y-1 z-[-1]" />
 
         <div className="bg-[#f9fafb] p-6 sm:p-10 rounded-3xl border border-white shadow-xl">
-          {success && (
-            <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+          {status === 'success' && (
+            <div role="status" className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-inter text-xs font-semibold flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Pesan dan doa Anda telah berhasil dicatat ke server pengabdian! Terima kasih.</span>
+              <span>Aplikasi email Anda terbuka dengan pesan yang sudah terisi. Tinggal tekan kirim, terima kasih!</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className="block text-xs font-montserrat font-bold text-slate-700 mb-1.5">
-                  Nama Lengkap *
+                <label htmlFor="gb-name" className="block font-montserrat font-bold text-xs text-slate-700 mb-1.5">
+                  Nama lengkap <span className="text-[#e11d48]">*</span>
                 </label>
                 <input
+                  id="gb-name"
                   type="text"
                   required
+                  maxLength={100}
+                  autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Contoh: Safwan Piliang"
-                  className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm bg-white border border-slate-200 text-slate-900 focus:outline-none focus:border-[#3057a6] shadow-2xs"
+                  placeholder="Tulis nama lengkap Anda"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-montserrat font-bold text-slate-700 mb-1.5">
-                  Asal / Instansi
+                <label htmlFor="gb-affiliation" className="block font-montserrat font-bold text-xs text-slate-700 mb-1.5">
+                  Asal / instansi
                 </label>
                 <input
+                  id="gb-affiliation"
                   type="text"
+                  maxLength={150}
+                  autoComplete="organization"
                   value={affiliation}
                   onChange={(e) => setAffiliation(e.target.value)}
                   placeholder="Contoh: Alumni UGM / Warga SBD"
-                  className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm bg-white border border-slate-200 text-slate-900 focus:outline-none focus:border-[#3057a6] shadow-2xs"
+                  className={inputClass}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-montserrat font-bold text-slate-700 mb-1.5">
-                Pesan atau Harapan *
+              <label htmlFor="gb-message" className="block font-montserrat font-bold text-xs text-slate-700 mb-1.5">
+                Pesan atau harapan <span className="text-[#e11d48]">*</span>
               </label>
               <textarea
-                rows={3}
+                id="gb-message"
+                rows={4}
                 required
+                maxLength={1000}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Tuliskan ucapan penyemangat atau aspirasi untuk pengabdian..."
-                className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm bg-white border border-slate-200 text-slate-900 focus:outline-none focus:border-[#3057a6] shadow-2xs"
+                className={`${inputClass} resize-y min-h-[120px]`}
               />
+              <span className="block text-right mt-1 font-inter text-[10.4px] text-slate-400 tabular-nums">{message.length}/1000</span>
             </div>
 
-            <div className="pt-2 flex justify-end">
-              <Button
-                type="submit"
-                variant="yellow"
-                icon={Send}
-                disabled={loading}
-                className="w-full sm:w-auto px-8"
-              >
-                {loading ? 'Mengirim...' : 'Kirim Pesan Doa'}
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-4">
+              <p className="font-inter text-[10.4px] text-slate-400">Kolom bertanda * wajib diisi.</p>
+              <Button type="submit" variant="yellow" icon={Send} className="w-full sm:w-auto px-8">
+                Kirim Pesan & Doa
               </Button>
             </div>
           </form>
         </div>
-      </div>
+      </Reveal>
 
     </section>
   )

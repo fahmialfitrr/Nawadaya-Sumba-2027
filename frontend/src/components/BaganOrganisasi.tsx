@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { Search } from 'lucide-react'
 import { ScrambleText } from './ScrambleText'
 import ThreeDMemberCard from './ThreeDMemberCard'
@@ -14,23 +14,9 @@ const CLUSTERS = [
 ] as const
 
 export default function BaganOrganisasi() {
-  const [members, setMembers] = useState<Member[]>(MEMBERS_DATA)
+  const members: Member[] = MEMBERS_DATA
   const [activeCluster, setActiveCluster] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
-
-  useEffect(() => {
-    // Attempt backend fetch, fallback to robust embedded MEMBERS_DATA
-    fetch('http://localhost:8080/api/members')
-      .then((res) => res.json())
-      .then((data: Member[]) => {
-        if (data && data.length >= 28) {
-          setMembers(data)
-        }
-      })
-      .catch(() => {
-        // Use client embedded data
-      })
-  }, [])
 
   const dpl = members.find((m) => m.hierarchy === 'dpl')
   const kormanit = members.find((m) => m.hierarchy === 'kormanit')
@@ -77,14 +63,14 @@ export default function BaganOrganisasi() {
         <ParticleCursor className="opacity-90 z-[1]" />
       </Suspense>
 
-      {/* Header in Safwan style */}
+      {/* Header */}
       <div className="flex flex-col items-center text-center max-w-3xl mb-10 space-y-3 relative z-10">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 justify-center">
-          <span className="font-montserrat font-bold text-[32px] sm:text-[44px] md:text-[56px] text-slate-900 leading-none">
+          <span className="font-montserrat font-bold text-[34.6px] sm:text-[44px] md:text-[56px] text-slate-900 leading-none">
             Bagan
           </span>
           <div className="bg-[#2563eb] border-2 border-[#1d4ed8] flex items-center justify-center px-4 py-1.5 shadow-[0_2px_10px_rgba(37,99,235,0.25)] -rotate-1 rounded-sm">
-            <span className="font-montserrat font-black text-[32px] sm:text-[44px] md:text-[56px] text-white leading-none tracking-tight">
+            <span className="font-montserrat font-black text-[34.6px] sm:text-[44px] md:text-[56px] text-white leading-none tracking-tight">
               <ScrambleText text="Anggota" />
             </span>
           </div>

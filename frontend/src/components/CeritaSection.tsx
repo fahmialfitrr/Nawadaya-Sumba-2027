@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Calendar, Clock, ArrowUpRight, Send, CheckCircle2, X } from 'lucide-react'
 import { ScrambleText } from './ScrambleText'
 import { Button } from './ui/Button'
+import { STORIES_DATA } from '../data/storiesData'
+import { CONTACT_EMAIL } from '../data/places'
 
 export interface Story {
   id: string
@@ -26,77 +28,35 @@ export interface GuestbookEntry {
 }
 
 export default function CeritaSection() {
-  const [stories, setStories] = useState<Story[]>([])
-  const [guestbook, setGuestbook] = useState<GuestbookEntry[]>([])
-  const [loading, setLoading] = useState(true)
+  const stories: Story[] = STORIES_DATA
+  const guestbook: GuestbookEntry[] = []
+  const loading = false
   const [selectedStory, setSelectedStory] = useState<Story | null>(null)
 
   // Form State
   const [name, setName] = useState('')
   const [affiliation, setAffiliation] = useState('')
   const [message, setMessage] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const submitting = false
   const [success, setSuccess] = useState(false)
 
-  useEffect(() => {
-    Promise.all([
-      fetch('http://localhost:8080/api/stories').then(res => res.json()),
-      fetch('http://localhost:8080/api/guestbook').then(res => res.json())
-    ])
-      .then(([storiesData, gbData]) => {
-        setStories(storiesData)
-        setGuestbook(gbData)
-        setLoading(false)
-      })
-      .catch(err => {
-        console.warn('Backend fetch fallback:', err)
-        setLoading(false)
-      })
-  }, [])
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim() || !message.trim()) return
 
-    setSubmitting(true)
-    try {
-      const res = await fetch('http://localhost:8080/api/guestbook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          affiliation: affiliation.trim() || 'Masyarakat Umum',
-          message: message.trim(),
-        }),
-      })
+    // Situs statis: pesan dikirim lewat aplikasi email pengunjung
+    const subject = encodeURIComponent('Pesan untuk KKN Nawadaya Sumba')
+    const body = encodeURIComponent(
+      `${message.trim()}
 
-      if (res.ok) {
-        const newEntry = await res.json()
-        setGuestbook([newEntry, ...guestbook])
-        setName('')
-        setAffiliation('')
-        setMessage('')
-        setSuccess(true)
-        setTimeout(() => setSuccess(false), 4000)
-      }
-    } catch (err) {
-      console.warn('Backend fallback:', err)
-      const mock: GuestbookEntry = {
-        id: `mock-${Date.now()}`,
-        name: name.trim(),
-        affiliation: affiliation.trim() || 'Masyarakat Umum',
-        message: message.trim(),
-        createdAt: new Date().toISOString(),
-      }
-      setGuestbook([mock, ...guestbook])
-      setName('')
-      setAffiliation('')
-      setMessage('')
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 4000)
-    } finally {
-      setSubmitting(false)
-    }
+— ${name.trim()}${affiliation.trim() ? `, ${affiliation.trim()}` : ''}`,
+    )
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`
+    setName('')
+    setAffiliation('')
+    setMessage('')
+    setSuccess(true)
+    setTimeout(() => setSuccess(false), 4000)
   }
 
   return (
@@ -105,11 +65,11 @@ export default function CeritaSection() {
       {/* Header */}
       <div className="flex flex-col items-center text-center max-w-3xl mb-12 space-y-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 justify-center">
-          <span className="font-montserrat font-bold text-[32px] sm:text-[44px] md:text-[56px] text-slate-900 leading-none">
+          <span className="font-montserrat font-bold text-[34.6px] sm:text-[44px] md:text-[56px] text-slate-900 leading-none">
             Jurnal
           </span>
           <div className="bg-[#e11d48] border-2 border-[#be123c] flex items-center justify-center px-4 py-1.5 shadow-[0_2px_10px_rgba(225,29,72,0.22)] -rotate-1 rounded-sm">
-            <span className="font-montserrat font-black text-[32px] sm:text-[44px] md:text-[56px] text-white leading-none tracking-tight">
+            <span className="font-montserrat font-black text-[34.6px] sm:text-[44px] md:text-[56px] text-white leading-none tracking-tight">
               <ScrambleText text="Cerita Sumba" />
             </span>
           </div>
@@ -147,17 +107,17 @@ export default function CeritaSection() {
                         decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                      <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#3057a6] text-white">
+                      <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10.4px] font-bold bg-[#3057a6] text-white">
                         {story.cluster}
                       </span>
-                      <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/90 text-slate-800 flex items-center gap-1">
+                      <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10.4px] font-bold bg-white/90 text-slate-800 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-[#3057a6]" />
                         {story.readTime}
                       </span>
                     </div>
 
                     <div className="space-y-1 px-1">
-                      <span className="text-[10px] font-semibold text-slate-400 block">
+                      <span className="text-[10.4px] font-semibold text-slate-400 block">
                         {story.date} • {story.author}
                       </span>
                       <h3 className="font-montserrat font-bold text-sm sm:text-base text-slate-800 line-clamp-2">
@@ -217,7 +177,7 @@ export default function CeritaSection() {
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Contoh: Safwan Piliang"
+                        placeholder="Tulis nama lengkap Anda"
                         className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm bg-white border border-slate-200 text-slate-900 focus:outline-none focus:border-[#3057a6] shadow-2xs"
                       />
                     </div>
@@ -274,7 +234,7 @@ export default function CeritaSection() {
                   <div key={item.id} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1.5 text-left">
                     <div className="flex items-center justify-between">
                       <strong className="font-montserrat font-bold text-xs text-slate-900">{item.name}</strong>
-                      <span className="text-[10px] font-semibold text-slate-400">{item.affiliation}</span>
+                      <span className="text-[10.4px] font-semibold text-slate-400">{item.affiliation}</span>
                     </div>
                     <p className="font-inter text-xs text-slate-600 leading-relaxed italic">
                       "{item.message}"

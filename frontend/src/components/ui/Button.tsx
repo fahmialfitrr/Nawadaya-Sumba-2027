@@ -21,7 +21,7 @@ export function Button({
   disabled = false,
 }: ButtonProps) {
   const baseStyles =
-    "flex gap-[6px] md:gap-[8px] items-center justify-center overflow-hidden px-[14px] py-[8px] md:px-[20px] md:py-[10px] relative rounded-full font-inter font-medium leading-[20px] md:leading-[24px] text-[13px] md:text-[15px] whitespace-nowrap transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    "flex gap-[6px] md:gap-[8px] items-center justify-center overflow-hidden px-[14px] py-[8px] md:px-[20px] md:py-[10px] relative rounded-full font-inter font-medium leading-[20px] md:leading-[24px] text-[13.2px] md:text-[13.2px] whitespace-nowrap transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 
   const variants = {
     white: "bg-white text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-50 hover:shadow hover:-translate-y-0.5",

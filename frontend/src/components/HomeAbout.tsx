@@ -1,106 +1,143 @@
-import React, { useRef, useState, useEffect } from 'react'
 import { MapPin, Mail, Globe } from 'lucide-react'
-import { ScrambleText } from './ScrambleText'
+import SectionHeading from './SectionHeading'
+import { Reveal, ScrollPhoto } from './ScrollPhoto'
+import { SUMBA_PHOTOS } from '../data/sumbaPhotos'
+import { KKN_LOCATION, formatCoords } from '../data/places'
 
-const InstagramIcon = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const InstagramIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
     <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
     <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
   </svg>
 )
 
-function TypewriterText() {
-  const [displayedText, setDisplayedText] = useState('')
+const CLUSTERS = [
+  { name: 'Saintek', color: '#16b8c5', focus: 'Energi surya & pemetaan desa' },
+  { name: 'Soshum', color: '#a2258d', focus: 'Literasi anak & lingkungan' },
+  { name: 'Medika', color: '#f05b6e', focus: 'Gizi & kesehatan keluarga' },
+  { name: 'Agro', color: '#f78d66', focus: 'Pakan ternak & pertanian' },
+]
 
-  useEffect(() => {
-    let isCancelled = false
-    const sequence = async () => {
-      const wait = (ms: number) => new Promise(res => setTimeout(res, ms))
-      const typeStr = async (str: string) => {
-        for (let i = 1; i <= str.length; i++) {
-          if (isCancelled) return
-          setDisplayedText(str.slice(0, i))
-          await wait(140)
-        }
-      }
-      const deleteStr = async (str: string) => {
-        for (let i = str.length; i >= 0; i--) {
-          if (isCancelled) return
-          setDisplayedText(str.slice(0, i))
-          await wait(90)
-        }
-      }
-
-      await typeStr('Sumba?')
-      if (isCancelled) return
-      await wait(1000)
-      await deleteStr('Sumba?')
-      if (isCancelled) return
-      await wait(250)
-      await typeStr('Nawadaya?')
-    }
-
-    sequence()
-    return () => {
-      isCancelled = true
-    }
-  }, [])
-
-  return (
-    <span className="inline-flex items-center">
-      {displayedText}
-      <span className="w-[3px] md:w-[5px] h-[28px] sm:h-[40px] md:h-[60px] bg-[#f1f5f9] ml-1 inline-block typewriter-cursor" />
-    </span>
-  )
-}
+const FACTS = [
+  { label: 'Desa', value: 'Rada Mata' },
+  { label: 'Kecamatan', value: 'Kota Tambolaka' },
+  { label: 'Kabupaten', value: 'Sumba Barat Daya' },
+  { label: 'Provinsi', value: 'Nusa Tenggara Timur' },
+]
 
 export default function HomeAbout() {
   const links = [
-    { name: 'Posko Tema Tana, Kodi Bangedo', icon: MapPin, href: '#map' },
+    { name: `${KKN_LOCATION.desa}, Kota Tambolaka`, icon: MapPin, href: '#map' },
     { name: 'kkn.nawadaya.sumba@ugm.ac.id', icon: Mail, href: 'mailto:kkn.nawadaya.sumba@ugm.ac.id' },
     { name: '@kkn.nawadayasumba', icon: InstagramIcon, href: 'https://instagram.com' },
     { name: 'kkn.ugm.ac.id', icon: Globe, href: 'https://kkn.ugm.ac.id' },
   ]
 
   return (
-    <section id="about" className="relative w-full py-16 md:py-28 px-4 sm:px-6 md:px-8 flex justify-center">
-      <div className="relative z-10 w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-14 items-center">
-        
-        {/* Left Column (Text Content, Safwan About style) */}
-        <div className="flex flex-col items-center lg:items-start gap-6 sm:gap-8 text-center lg:text-left">
-          
-          {/* Header Title with Primary Stabilo Blue Box */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 justify-center lg:justify-start">
-            <span className="font-montserrat font-bold text-[32px] sm:text-[44px] md:text-[60px] text-slate-900 leading-none">
-              Tentang
+    <section id="about" className="relative w-full py-24 md:py-32 px-4 sm:px-6 md:px-8 flex justify-center scroll-mt-20">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-12 items-center">
+
+        {/* Kiri: kolase foto dengan parallax */}
+        <div className="lg:col-span-6 relative w-full max-w-xl mx-auto lg:mx-0 pb-16 sm:pb-20">
+          <ScrollPhoto
+            src={SUMBA_PHOTOS.ratenggaroKampung.src}
+            alt={SUMBA_PHOTOS.ratenggaroKampung.alt}
+            strength={10}
+            className="w-[82%] aspect-[4/5] rounded-3xl shadow-2xl"
+          >
+            <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-slate-800 font-inter font-semibold text-[10.4px] uppercase tracking-wider px-3 py-1 rounded-full">
+              {SUMBA_PHOTOS.ratenggaroKampung.caption}
             </span>
-            <div className="bg-[#2563eb] border-2 border-[#1d4ed8] flex items-center justify-center px-3 sm:px-4 py-1 sm:py-2 shadow-[0_2px_10px_rgba(37,99,235,0.25)] -rotate-1 rounded-sm">
-              <span className="font-montserrat font-black text-2xl sm:text-3xl md:text-4xl text-white leading-none tracking-tight">
-                <ScrambleText text="Nawadaya Sumba" />
-              </span>
-            </div>
+          </ScrollPhoto>
+
+          <div className="absolute right-0 bottom-0 w-[54%]">
+            <ScrollPhoto
+              src={SUMBA_PHOTOS.gobakSodor.src}
+              alt={SUMBA_PHOTOS.gobakSodor.alt}
+              strength={12}
+              delay={0.2}
+              className="w-full aspect-[4/3] rounded-3xl border-[6px] border-[#f4f5f7] shadow-2xl"
+            />
+            <span className="block mt-2 pl-2 font-inter text-[10.4px] text-slate-500">
+              Anak-anak bermain gobak sodor, Sumba Barat Daya
+            </span>
           </div>
 
-          {/* Quoted Body Text */}
-          <p className="font-montserrat font-medium text-[14px] sm:text-[17px] md:text-[19px] text-slate-700 leading-[24px] sm:leading-[30px] md:leading-[34px] tracking-[0.15px]">
-            "Kami adalah <span className="font-bold">30 mahasiswa Universitas Gadjah Mada</span> yang mengabdi di <span className="font-bold">Kecamatan Kodi Bangedo, Sumba Barat Daya</span>. Dengan memadukan 4 kluster keilmuan (<span className="font-bold text-[#16b8c5]">Saintek</span>, <span className="font-bold text-[#a2258d]">Soshum</span>, <span className="font-bold text-[#f05b6e]">Medika</span>, <span className="font-bold text-[#f78d66]">Agro</span>), misi kami adalah berjalan berdampingan bersama masyarakat untuk <span className="font-bold">membangun kemandirian energi surya, penguatan literasi anak dusun, ketahanan pakan ternak silase, dan perbaikan gizi keluarga</span>. Mari berkolaborasi bersama kami!"
-          </p>
+          <Reveal delay={0.4} className="absolute top-6 right-0 sm:right-4">
+            <div className="bg-[#fdde09] text-slate-900 rounded-2xl px-4 py-3 shadow-lg rotate-3">
+              <span className="block font-montserrat font-bold text-xl leading-none">50</span>
+              <span className="block font-inter text-[10.4px] font-semibold uppercase tracking-wider mt-1">Hari Kerja</span>
+            </div>
+          </Reveal>
+        </div>
 
-          {/* Key Links */}
-          <div className="flex flex-col items-center lg:items-start gap-3 w-full pt-2">
-            <h3 className="font-montserrat font-bold text-sm sm:text-base text-slate-700">
-              Informasi Posko & Kontak Resmi:
+        {/* Kanan: teks */}
+        <div className="lg:col-span-6 flex flex-col gap-8">
+          <SectionHeading index="01" eyebrow="Tentang Kami" lead="Tentang" highlight="Nawadaya" color="#2563eb" border="#1d4ed8" />
+
+          <Reveal delay={0.1}>
+            <p className="font-inter text-sm text-slate-600 leading-[1.75]">
+              Kami adalah <strong className="font-semibold text-slate-900">30 mahasiswa Universitas Gadjah Mada</strong> yang mengabdi di{' '}
+              <strong className="font-semibold text-slate-900">Desa Rada Mata, Kecamatan Kota Tambolaka</strong>, ibu kota Kabupaten Sumba Barat Daya. Misi kami: berjalan berdampingan bersama warga untuk membangun kemandirian energi surya, penguatan literasi anak, ketahanan pakan ternak, dan perbaikan gizi keluarga.
+            </p>
+          </Reveal>
+
+          {/* Angka singkat (di desktop tampil di kartu sampul) */}
+          <Reveal delay={0.11} className="lg:hidden">
+            <dl className="grid grid-cols-4 gap-3 rounded-2xl bg-white border border-slate-200/80 p-4">
+              {[
+                ['30', 'Mahasiswa'],
+                ['4', 'Kluster'],
+                ['2', 'Wilayah kerja'],
+                ['50', 'Hari'],
+              ].map(([value, label]) => (
+                <div key={label} className="flex flex-col gap-1">
+                  <dt className="order-2 font-inter text-[10.4px] text-slate-500 leading-tight">{label}</dt>
+                  <dd className="order-1 font-montserrat font-bold text-xl text-slate-900 leading-none">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
+
+          {/* Fakta lokasi */}
+          <Reveal delay={0.12}>
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-4">
+              {FACTS.map((f) => (
+                <div key={f.label} className="border-l-2 border-[#2563eb]/25 pl-3">
+                  <dt className="font-inter text-[10.4px] font-semibold uppercase tracking-wider text-slate-400">{f.label}</dt>
+                  <dd className="font-montserrat font-semibold text-xs text-slate-900 mt-0.5">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2 font-inter text-[10.4px] text-slate-400 tabular-nums">{formatCoords(KKN_LOCATION)}</p>
+          </Reveal>
+
+          {/* Kluster */}
+          <Reveal delay={0.15}>
+            <div className="grid grid-cols-2 gap-3">
+              {CLUSTERS.map((c) => (
+                <div key={c.name} className="p-3 rounded-2xl bg-white border border-slate-200/80">
+                  <span className="block font-montserrat font-bold text-xs" style={{ color: c.color }}>{c.name}</span>
+                  <span className="block font-inter text-[10.4px] text-slate-500 leading-snug mt-0.5">{c.focus}</span>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+
+          {/* Kontak */}
+          <Reveal delay={0.2}>
+            <h3 className="font-montserrat font-bold text-[10.4px] uppercase tracking-[0.18em] text-slate-500 mb-2">
+              Posko & Kontak
             </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-              {links.map((link, idx) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+              {links.map((link) => (
                 <a
-                  key={idx}
+                  key={link.name}
                   href={link.href}
-                  className="flex items-center gap-2.5 p-3 rounded-2xl bg-white/80 border border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-[#3057a6] transition-all no-underline group"
+                  className="flex items-center gap-2.5 p-2 -ml-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 transition-all no-underline group"
                 >
-                  <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-[#3057a6]/10 flex items-center justify-center text-[#3057a6] shrink-0 transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-[#3057a6]/10 group-hover:bg-[#3057a6] flex items-center justify-center text-[#3057a6] group-hover:text-white shrink-0 transition-colors">
                     <link.icon className="w-4 h-4" />
                   </div>
                   <span className="font-inter text-xs text-slate-700 group-hover:text-[#3057a6] transition-colors truncate">
@@ -109,66 +146,7 @@ export default function HomeAbout() {
                 </a>
               ))}
             </div>
-          </div>
-
-        </div>
-
-        {/* Right Column (3D Identity Card Showcase) */}
-        <div className="flex items-center justify-center lg:justify-end w-full">
-          <div className="relative group w-full max-w-md">
-            
-            {/* Background Paper 1 */}
-            <div className="absolute inset-0 bg-slate-300 border border-slate-300 transition-all duration-500 ease-out origin-bottom-left rotate-[3deg] translate-x-2 group-hover:rotate-[5deg] group-hover:translate-x-3 group-hover:-translate-y-1 z-[-2] shadow-sm rounded-2xl" />
-
-            {/* Background Paper 2 */}
-            <div className="absolute inset-0 bg-slate-200 border border-slate-200 transition-all duration-500 ease-out origin-bottom-right -rotate-[2deg] -translate-x-2 group-hover:-rotate-[3deg] group-hover:-translate-x-3 group-hover:-translate-y-0.5 z-[-1] shadow-sm rounded-2xl" />
-
-            {/* Front Card */}
-            <div className="bg-[#f9fafb] p-6 rounded-2xl border border-white shadow-xl flex flex-col gap-4 relative z-10">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-[#3057a6] text-white flex items-center justify-center font-bold text-xs">
-                    UGM
-                  </div>
-                  <div>
-                    <h4 className="font-montserrat font-bold text-sm text-slate-800">
-                      KKN-PPM UGM SBD-02
-                    </h4>
-                    <p className="font-inter text-[10px] text-slate-500">Unit Sumba Barat Daya</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#fdde09] text-slate-900">
-                  Periode 2 • 2026
-                </span>
-              </div>
-
-              <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-800 relative">
-                <img
-                  src="/images/kkn_community.jpg"
-                  alt="Tim KKN Nawadaya Bersama Warga"
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
-                <span className="absolute bottom-3 left-3 text-white text-xs font-montserrat font-bold">
-                  Kodi Bangedo, SBD
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                <div className="p-2.5 rounded-xl bg-white border border-slate-200">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold block">Wilayah Binaan</span>
-                  <strong className="text-slate-800 font-bold">7 Titik Desa</strong>
-                </div>
-                <div className="p-2.5 rounded-xl bg-white border border-slate-200">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold block">Durasi Pengabdian</span>
-                  <strong className="text-slate-800 font-bold">50 Hari Kerja</strong>
-                </div>
-              </div>
-            </div>
-
-          </div>
+          </Reveal>
         </div>
 
       </div>

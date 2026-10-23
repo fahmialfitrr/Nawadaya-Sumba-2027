@@ -1,0 +1,854 @@
+import { useEffect, useRef } from 'react'
+import * as THREE from 'three'
+import { HERO_OVERSCAN as OVERSCAN, type HeroScene as HeroSceneData } from '../data/heroScenes'
+
+/**
+ * Hero 3D: foto lanskap dibentuk jadi permukaan 3D dari depth map-nya,
+ * lalu kamera bergerak pelan (mouse / idle / scroll) sehingga muncul parallax nyata.
+ *
+ * Lanskap berikutnya hidup di ruang 3D tersendiri, jauh di belakang lanskap sekarang.
+ * Kursor membolongi lanskap sekarang menjadi piksel-piksel sehingga dunia di belakangnya
+ * terlihat, lengkap dengan parallax-nya sendiri. Saat diklik, lanskap sekarang terurai
+ * piksel demi piksel (gradient wipe) sambil melewati kamera, dan dunia di belakangnya
+ * maju menggantikannya.
+ */
+
+const FOV = 32
+const CAM_DIST = 6
+const DEPTH_SCALE = 2
+const SWAY = { x: 0.75, y: 0.38 }
+const INTRO_MS = 2200
+const TRANSITION_MS = 2600
+/** Ukuran piksel lubang di layar (px CSS) */
+const PIXEL_PX = { desktop: 22, small: 16 }
+/** Jangkauan lubang di sekitar kursor, relatif terhadap tinggi permukaan foto */
+const HOVER_REACH = { follow: 0.22, rest: 0.12 }
+/** Jarak dunia lanskap berikutnya di belakang lanskap sekarang (satuan dunia 3D) */
+const BACK_DIST = 2.6
+/** Ukuran tampak dunia belakang saat menunggu (sedikit lebih kecil = terasa jauh) */
+const BACK_APPARENT = 0.94
+/** Kabut tipis pada dunia belakang sebagai penanda jarak */
+const BACK_FOG = 0.2
+/** Seberapa jauh lanskap sekarang bergerak melewati kamera saat terurai */
+const FRONT_FLY = 2.4
+
+export interface LensState {
+  /** Posisi kursor/titik pancingan dalam px CSS, relatif terhadap kontainer */
+  x: number
+  y: number
+  /** follow = ikut kursor, rest = berdenyut di titik pancingan, off = disembunyikan */
+  mode: 'follow' | 'rest' | 'off'
+}
+
+interface HeroSceneProps {
+  scenes: HeroSceneData[]
+  active: number
+  /** Seberapa jauh hero sudah tertutup konten di bawahnya, 0..1 */
+  scrollRef: { current: number }
+  lensRef: { current: LensState }
+  /** Titik awal wipe berikutnya (px CSS); null = mulai dari posisi kursor/pancingan */
+  originRef: { current: { x: number; y: number } | null }
+  /** Elemen overlay yang menerima posisi kursor lewat CSS variable --lx, --ly, --lf, --lo */
+  overlayRef: { current: HTMLElement | null }
+  onReady: () => void
+  onError: () => void
+  className?: string
+}
+
+interface LoadedScene {
+  image: THREE.Texture
+  depth: THREE.Texture
+}
+
+const common = /* glsl */ `
+  #define PI 3.14159265
+  uniform float uDepthScale;
+  uniform float uFlat;
+  uniform float uTime;
+  uniform float uLife;
+
+  vec2 coverUv(vec2 uv, vec2 s, vec2 o) { return (uv - 0.5) * s + 0.5 + o; }
+
+  // Objek dekat maju penuh; latar (langit, laut jauh) hanya mundur sedikit
+  // supaya tepi permukaan tidak pernah terlihat saat kamera bergeser.
+  float shapeDepth(float d, float focus) {
+    float z = d - focus;
+    return z > 0.0 ? z : z * 0.35;
+  }
+
+  float hash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+  }
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+      v += a * noise(p);
+      p = p * 2.03 + vec2(1.7, 9.2);
+      a *= 0.5;
+    }
+    return v;
+  }
+
+  vec3 shade(sampler2D tex, sampler2D dep, vec2 uv, float wind, float shadow) {
+    float depth = texture2D(dep, uv).r;
+    // Angin: hanya objek terdekat (daun, semak) yang bergoyang
+    float near = smoothstep(0.6, 0.95, depth) * wind * uLife;
+    vec2 sway = vec2(
+      sin(uTime * 1.5 + uv.y * 13.0 + uv.x * 5.0) + 0.5 * sin(uTime * 2.6 + uv.x * 21.0),
+      cos(uTime * 1.15 + uv.x * 10.0)
+    ) * 0.0014 * near;
+    vec3 c = texture2D(tex, uv + sway).rgb;
+    // Bayangan awan yang melintas pelan di daratan (langit dikecualikan)
+    if (shadow > 0.0) {
+      float n = fbm(uv * vec2(2.2, 1.5) + vec2(uTime * 0.016, uTime * 0.005));
+      float land = smoothstep(0.14, 0.32, depth);
+      c *= 1.0 - shadow * uLife * land * smoothstep(0.5, 0.74, n);
+    }
+    return c;
+  }
+`
+
+// Lanskap sekarang: tersusun dari blok per piksel agar tiap piksel bisa dilubangi utuh
+const frontVertex = /* glsl */ `
+  ${common}
+  attribute vec2 aCell;
+  uniform sampler2D uDepth0;
+  uniform sampler2D uDepth1;
+  uniform vec2 uScale0;
+  uniform vec2 uOff0;
+  uniform vec2 uScale1;
+  uniform vec2 uOff1;
+  uniform float uFocus0;
+  uniform vec2 uGrid;
+  uniform float uPlaneAspect;
+  uniform vec2 uOriginUv;
+  uniform float uMix;
+  uniform float uHover;
+  uniform float uReach;
+  varying vec2 vUv;
+  varying vec2 vCellUv;
+  varying vec2 vState;
+
+  const float BAND = 0.12;
+
+  // x = progres terurai saat wipe (1 = bolong), y = progres bolong di sekitar kursor (>= 0.5 = bolong)
+  vec2 cellState(vec2 cell) {
+    if (uMix <= 0.0 && uHover <= 0.001) return vec2(0.0);
+    vec2 cellUv = (cell + 0.5) / uGrid;
+    float rnd = hash(cell * 0.731 + 17.0);
+    vec2 asp = vec2(uPlaneAspect, 1.0);
+    float dist = distance(cellUv * asp, uOriginUv * asp);
+
+    // Peta gradien ala After Effects (0..1, tersebar merata): noise + acak per piksel
+    // + kedalaman lanskap berikutnya (yang dekat terbuka duluan) + bias ke titik klik
+    float n = clamp((fbm(cellUv * asp * 2.6 + 11.0) - 0.3) / 0.4, 0.0, 1.0);
+    float d1 = texture2D(uDepth1, coverUv(cellUv, uScale1, uOff1)).r;
+    float g = 0.42 * n + 0.18 * rnd + 0.22 * (1.0 - d1);
+    float gWipe = g * 0.82 + 0.18 * clamp(dist / 1.1, 0.0, 1.0);
+    float fWipe = clamp((uMix * (1.0 + BAND) - gWipe) / BAND, 0.0, 1.0);
+
+    // Lubang di sekitar kursor, dengan batas yang tidak beraturan
+    float ragged = (fbm(cellUv * asp * 5.0 + vec2(uTime * 0.05, 0.0)) - 0.5) * uReach;
+    float local = uHover * (1.0 - smoothstep(uReach * 0.1, uReach, dist + ragged));
+    float tPeek = local * (0.66 + 0.05 * sin(uTime * 3.2 + rnd * 40.0));
+    float fHover = clamp((tPeek - g) / BAND + 0.5, 0.0, 1.0) * step(0.001, local);
+    return vec2(fWipe, fHover);
+  }
+
+  void main() {
+    vUv = uv;
+    vCellUv = (aCell + 0.5) / uGrid;
+    vState = cellState(aCell);
+    float d0 = shapeDepth(texture2D(uDepth0, coverUv(uv, uScale0, uOff0)).r, uFocus0);
+    vec3 p = position;
+    p.z += d0 * uDepthScale * uFlat;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  }
+`
+
+const frontFragment = /* glsl */ `
+  ${common}
+  uniform sampler2D uTex0;
+  uniform sampler2D uDepth0;
+  uniform vec2 uScale0;
+  uniform vec2 uOff0;
+  uniform float uWind0;
+  uniform float uShadow0;
+  varying vec2 vUv;
+  varying vec2 vCellUv;
+  varying vec2 vState;
+
+  void main() {
+    // Piksel yang sudah bolong memperlihatkan dunia di belakangnya
+    if (vState.x >= 0.999 || vState.y >= 0.5) discard;
+    // Sesaat sebelum bolong, piksel berubah jadi mosaik
+    bool mosaic = vState.x > 0.001 || vState.y > 0.2;
+    vec3 c = shade(uTex0, uDepth0, coverUv(mosaic ? vCellUv : vUv, uScale0, uOff0), uWind0, uShadow0);
+    if (mosaic) c = c * 1.06 + vec3(1.0, 0.88, 0.7) * 0.05;
+    gl_FragColor = vec4(c, 1.0);
+  }
+`
+
+// Lanskap berikutnya: dunia 3D tersendiri di belakang
+const backVertex = /* glsl */ `
+  ${common}
+  uniform sampler2D uDepth1;
+  uniform vec2 uScale1;
+  uniform vec2 uOff1;
+  uniform float uFocus1;
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    float d1 = shapeDepth(texture2D(uDepth1, coverUv(uv, uScale1, uOff1)).r, uFocus1);
+    vec3 p = position;
+    p.z += d1 * uDepthScale * uFlat;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  }
+`
+
+const backFragment = /* glsl */ `
+  ${common}
+  uniform sampler2D uTex1;
+  uniform sampler2D uDepth1;
+  uniform vec2 uScale1;
+  uniform vec2 uOff1;
+  uniform float uWind1;
+  uniform float uShadow1;
+  uniform float uFog;
+  varying vec2 vUv;
+
+  void main() {
+    vec3 c = shade(uTex1, uDepth1, coverUv(vUv, uScale1, uOff1), uWind1, uShadow1);
+    c = mix(c, vec3(0.06, 0.09, 0.15), uFog);
+    gl_FragColor = vec4(c, 1.0);
+  }
+`
+
+const particleVertex = /* glsl */ `
+  attribute float aSeed;
+  attribute float aSize;
+  uniform float uTime;
+  uniform float uScale;
+  uniform vec3 uBox;
+  varying float vAlpha;
+
+  void main() {
+    vec3 p = position;
+    float drift = uTime * (0.03 + aSeed * 0.05);
+    p.x = mod(p.x + drift + uBox.x, uBox.x * 2.0) - uBox.x;
+    p.y += sin(uTime * 0.35 + aSeed * 20.0) * 0.04;
+    p.x += cos(uTime * 0.27 + aSeed * 13.0) * 0.03;
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = min(aSize * uScale / -mv.z, 26.0);
+    vAlpha = 0.3 + 0.7 * (0.5 + 0.5 * sin(uTime * 1.1 + aSeed * 40.0));
+  }
+`
+
+const particleFragment = /* glsl */ `
+  uniform float uOpacity;
+  varying float vAlpha;
+
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    float a = smoothstep(0.5, 0.0, d);
+    gl_FragColor = vec4(1.0, 0.95, 0.84, a * a * vAlpha * uOpacity);
+  }
+`
+
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+
+export default function HeroScene({
+  scenes,
+  active,
+  scrollRef,
+  lensRef,
+  originRef,
+  overlayRef,
+  onReady,
+  onError,
+  className = '',
+}: HeroSceneProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const apiRef = useRef<{ setActive: (i: number) => void } | null>(null)
+  const callbacks = useRef({ onReady, onError })
+  callbacks.current = { onReady, onError }
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    // Kanvas dibuat per mount: konteks WebGL yang sudah dilepas tidak bisa dipakai ulang
+    const canvas = document.createElement('canvas')
+    canvas.className = 'block w-full h-full'
+    canvas.setAttribute('aria-hidden', 'true')
+    container.appendChild(canvas)
+
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' })
+    } catch {
+      canvas.remove()
+      callbacks.current.onError()
+      return
+    }
+
+    const isTouch = window.matchMedia('(pointer: coarse)').matches
+    const isSmall = Math.min(window.innerWidth, window.innerHeight) < 700
+    const dpr = Math.min(window.devicePixelRatio || 1, isSmall ? 1.5 : 1.75)
+    renderer.setPixelRatio(dpr)
+    renderer.setClearColor(0x0b1220, 1)
+
+    const scene = new THREE.Scene()
+    const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 50)
+    camera.position.set(0, 0, CAM_DIST)
+
+    // Uniform bersama kedua dunia
+    const uniforms = {
+      uTex0: { value: null as THREE.Texture | null },
+      uTex1: { value: null as THREE.Texture | null },
+      uDepth0: { value: null as THREE.Texture | null },
+      uDepth1: { value: null as THREE.Texture | null },
+      uScale0: { value: new THREE.Vector2(1, 1) },
+      uScale1: { value: new THREE.Vector2(1, 1) },
+      uOff0: { value: new THREE.Vector2(0, 0) },
+      uOff1: { value: new THREE.Vector2(0, 0) },
+      uFocus0: { value: 0.3 },
+      uFocus1: { value: 0.3 },
+      uWind0: { value: 0 },
+      uWind1: { value: 0 },
+      uShadow0: { value: 0 },
+      uShadow1: { value: 0 },
+      uMix: { value: 0 },
+      uFlat: { value: 0 },
+      uDepthScale: { value: DEPTH_SCALE },
+      uTime: { value: 0 },
+      uLife: { value: 0 },
+      uGrid: { value: new THREE.Vector2(60, 34) },
+      uPlaneAspect: { value: 16 / 9 },
+      uOriginUv: { value: new THREE.Vector2(0.5, 0.5) },
+      uHover: { value: 0 },
+      uReach: { value: HOVER_REACH.follow },
+      uFog: { value: BACK_FOG },
+    }
+
+    // Dunia belakang (lanskap berikutnya)
+    const backGeometry = new THREE.PlaneGeometry(1, 1, isSmall ? 110 : 170, isSmall ? 110 : 170)
+    const backMaterial = new THREE.ShaderMaterial({ uniforms, vertexShader: backVertex, fragmentShader: backFragment })
+    const back = new THREE.Mesh(backGeometry, backMaterial)
+    back.frustumCulled = false
+    scene.add(back)
+
+    // Dunia depan (lanskap sekarang): satu blok kecil per piksel agar bisa dilubangi
+    let frontGeometry = new THREE.BufferGeometry()
+    const frontMaterial = new THREE.ShaderMaterial({ uniforms, vertexShader: frontVertex, fragmentShader: frontFragment })
+    const front = new THREE.Mesh(frontGeometry, frontMaterial)
+    front.frustumCulled = false
+    scene.add(front)
+
+    const buildFront = (cols: number, rows: number) => {
+      // Kerapatan titik per blok dijaga sekitar 60 ribu titik total
+      const k = Math.min(6, Math.max(2, Math.round(Math.sqrt(60000 / (cols * rows))) - 1))
+      const vpc = (k + 1) * (k + 1)
+      const cells = cols * rows
+      const pos = new Float32Array(cells * vpc * 3)
+      const uv = new Float32Array(cells * vpc * 2)
+      const cell = new Float32Array(cells * vpc * 2)
+      const index = new Uint32Array(cells * k * k * 6)
+      let v = 0
+      let t = 0
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const base = v
+          for (let j = 0; j <= k; j++) {
+            for (let i = 0; i <= k; i++) {
+              const u = (x + i / k) / cols
+              const w = (y + j / k) / rows
+              pos[v * 3] = u - 0.5
+              pos[v * 3 + 1] = w - 0.5
+              uv[v * 2] = u
+              uv[v * 2 + 1] = w
+              cell[v * 2] = x
+              cell[v * 2 + 1] = y
+              v++
+            }
+          }
+          for (let j = 0; j < k; j++) {
+            for (let i = 0; i < k; i++) {
+              const a = base + j * (k + 1) + i
+              const b = a + 1
+              const c = a + k + 1
+              const d = c + 1
+              index[t++] = a
+              index[t++] = b
+              index[t++] = d
+              index[t++] = a
+              index[t++] = d
+              index[t++] = c
+            }
+          }
+        }
+      }
+      const next = new THREE.BufferGeometry()
+      next.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+      next.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+      next.setAttribute('aCell', new THREE.BufferAttribute(cell, 2))
+      next.setIndex(new THREE.BufferAttribute(index, 1))
+      frontGeometry.dispose()
+      frontGeometry = next
+      front.geometry = next
+    }
+
+    // Partikel cahaya / serbuk sari yang melayang
+    const count = isSmall ? 70 : 150
+    const pGeo = new THREE.BufferGeometry()
+    const pos = new Float32Array(count * 3)
+    const seeds = new Float32Array(count)
+    const sizes = new Float32Array(count)
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 2
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 2
+      pos[i * 3 + 2] = -0.2 + Math.random() * 3.6
+      seeds[i] = Math.random()
+      sizes[i] = 0.5 + Math.pow(Math.random(), 2.2) * 1.8
+    }
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    pGeo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1))
+    pGeo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1))
+    const pUniforms = {
+      uTime: { value: 0 },
+      uScale: { value: 10 },
+      uBox: { value: new THREE.Vector3(1, 1, 1) },
+      uOpacity: { value: 0 },
+    }
+    const pMat = new THREE.ShaderMaterial({
+      uniforms: pUniforms,
+      vertexShader: particleVertex,
+      fragmentShader: particleFragment,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+    const particles = new THREE.Points(pGeo, pMat)
+    particles.frustumCulled = false
+    scene.add(particles)
+
+    // Ukuran & cover-fit
+    let viewW = 1
+    let viewH = 1
+    let planeAspect = 1
+    let cssW = 1
+    let cssH = 1
+    let grid = { cols: 0, rows: 0 }
+    const slotScene: [HeroSceneData | null, HeroSceneData | null] = [null, null]
+
+    const coverFor = (s: HeroSceneData, scale: THREE.Vector2, off: THREE.Vector2) => {
+      const fx = s.focal?.[0] ?? 0.5
+      const fy = s.focal?.[1] ?? 0.5
+      if (planeAspect > s.aspect) scale.set(1, s.aspect / planeAspect)
+      else scale.set(planeAspect / s.aspect, 1)
+      off.set((fx - 0.5) * (1 - scale.x), (0.5 - fy) * (1 - scale.y))
+    }
+    const applyCover = () => {
+      if (slotScene[0]) coverFor(slotScene[0], uniforms.uScale0.value, uniforms.uOff0.value)
+      if (slotScene[1]) coverFor(slotScene[1], uniforms.uScale1.value, uniforms.uOff1.value)
+    }
+
+    const resize = () => {
+      const w = container.clientWidth
+      const h = container.clientHeight
+      if (!w || !h) return
+      cssW = w
+      cssH = h
+      renderer.setSize(w, h, false)
+      camera.aspect = w / h
+      camera.updateProjectionMatrix()
+      viewH = 2 * CAM_DIST * Math.tan(THREE.MathUtils.degToRad(FOV / 2))
+      viewW = viewH * camera.aspect
+      planeAspect = camera.aspect
+      front.scale.set(viewW * OVERSCAN, viewH * OVERSCAN, 1)
+      uniforms.uPlaneAspect.value = planeAspect
+      particles.scale.set(viewW * 0.55, viewH * 0.55, 1)
+      pUniforms.uScale.value = h * dpr * 0.011
+      // Grid piksel: ukuran piksel di layar kira-kira tetap di semua resolusi
+      const px = w < 700 ? PIXEL_PX.small : PIXEL_PX.desktop
+      const cols = Math.min(120, Math.max(20, Math.round((w / px) * OVERSCAN)))
+      const rows = Math.max(8, Math.round(cols / planeAspect))
+      if (cols !== grid.cols || rows !== grid.rows) {
+        grid = { cols, rows }
+        uniforms.uGrid.value.set(cols, rows)
+        buildFront(cols, rows)
+      }
+      applyCover()
+    }
+    resize()
+    const ro = new ResizeObserver(resize)
+    ro.observe(container)
+
+    // px CSS (dari kiri atas) -> koordinat UV permukaan depan (perkiraan tanpa goyangan kamera)
+    const toPlaneUv = (x: number, y: number) => ({
+      u: 0.5 + (x / cssW - 0.5) / OVERSCAN,
+      v: 0.5 + (0.5 - y / cssH) / OVERSCAN,
+    })
+    const setOrigin = (x: number, y: number) => {
+      const p = toPlaneUv(x, y)
+      uniforms.uOriginUv.value.set(p.u, p.v)
+    }
+    // Titik di foto lanskap berikutnya ([x, y] dari kiri atas) -> px CSS, seperti terlihat di dunia belakang
+    const peekToScreen = (s: HeroSceneData) => {
+      const sc = uniforms.uScale1.value
+      const of = uniforms.uOff1.value
+      const pu = (s.peek[0] - 0.5 - of.x) / sc.x + 0.5
+      const pv = (1 - s.peek[1] - 0.5 - of.y) / sc.y + 0.5
+      const k = OVERSCAN * BACK_APPARENT
+      return { x: cssW * (0.5 + (pu - 0.5) * k), y: cssH * (0.5 - (pv - 0.5) * k) }
+    }
+
+    // Pemuatan tekstur
+    const loader = new THREE.TextureLoader()
+    const maxAniso = renderer.capabilities.getMaxAnisotropy()
+    // Ambang sama dengan srcset poster (1280w / 2560w) agar foto tidak diunduh dua kali
+    const useLarge = window.innerWidth * (window.devicePixelRatio || 1) > 1280
+    const cache = new Map<number, Promise<LoadedScene>>()
+    const loaded = new Map<number, LoadedScene>()
+    let disposed = false
+
+    const loadTexture = (url: string, isDepth: boolean) =>
+      new Promise<THREE.Texture>((resolve, reject) => {
+        loader.load(
+          url,
+          (tex) => {
+            if (isDepth) {
+              tex.generateMipmaps = false
+              tex.minFilter = THREE.LinearFilter
+            } else {
+              tex.anisotropy = maxAniso
+            }
+            tex.magFilter = THREE.LinearFilter
+            tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+            resolve(tex)
+          },
+          undefined,
+          reject,
+        )
+      })
+
+    const load = (i: number) => {
+      let p = cache.get(i)
+      if (!p) {
+        const s = scenes[i]
+        p = Promise.all([loadTexture(useLarge ? s.image.lg : s.image.sm, false), loadTexture(s.depth, true)]).then(
+          ([image, depth]) => {
+            const res = { image, depth }
+            if (disposed) {
+              image.dispose()
+              depth.dispose()
+            } else loaded.set(i, res)
+            return res
+          },
+        )
+        p.catch(() => cache.delete(i))
+        cache.set(i, p)
+      }
+      return p
+    }
+
+    // Simpan maksimal lanskap aktif + berikutnya di GPU
+    const trim = (keep: number[]) => {
+      for (const [i, res] of loaded) {
+        if (keep.includes(i)) continue
+        res.image.dispose()
+        res.depth.dispose()
+        loaded.delete(i)
+        cache.delete(i)
+      }
+    }
+
+    const setSlot = (slot: 0 | 1, i: number, res: LoadedScene) => {
+      const s = scenes[i]
+      slotScene[slot] = s
+      if (slot === 0) {
+        uniforms.uTex0.value = res.image
+        uniforms.uDepth0.value = res.depth
+        uniforms.uFocus0.value = s.focus
+        uniforms.uWind0.value = s.wind
+        uniforms.uShadow0.value = s.shadow
+      } else {
+        uniforms.uTex1.value = res.image
+        uniforms.uDepth1.value = res.depth
+        uniforms.uFocus1.value = s.focus
+        uniforms.uWind1.value = s.wind
+        uniforms.uShadow1.value = s.shadow
+      }
+      applyCover()
+    }
+
+    // Kursor (atau titik pancingan) & transisi
+    const hover = { x: -1, y: -1, amount: 0, follow: 0 }
+    let transition: { start: number; x: number; y: number; h0: number; resolve: () => void } | null = null
+
+    const runTransition = () =>
+      new Promise<void>((resolve) => {
+        const o = originRef.current ?? { x: hover.x, y: hover.y }
+        originRef.current = null
+        transition = { start: performance.now(), x: o.x, y: o.y, h0: hover.amount, resolve }
+        start()
+      })
+
+    let current = -1
+    let preview = -1
+    let pending: number | null = null
+    let busy = false
+    let introStart = -1
+
+    const runQueue = async () => {
+      if (busy) return
+      busy = true
+      try {
+        while (!disposed) {
+          if (pending !== null && pending !== current) {
+            const target = pending
+            pending = null
+            const res = await load(target)
+            if (disposed) return
+            if (current === -1) {
+              setSlot(0, target, res)
+              current = target
+              introStart = performance.now()
+              start()
+              callbacks.current.onReady()
+            } else {
+              if (preview !== target) {
+                setSlot(1, target, res)
+                preview = target
+              }
+              await runTransition()
+              if (disposed) return
+              // Dunia belakang kini sudah tepat di posisi dunia depan: tukar tanpa terlihat
+              setSlot(0, target, res)
+              current = target
+              uniforms.uMix.value = 0
+              hover.amount = 0
+            }
+            continue
+          }
+          // Siapkan lanskap berikutnya di dunia belakang
+          const next = (current + 1) % scenes.length
+          if (scenes.length < 2 || preview === next) break
+          const res = await load(next)
+          if (disposed) return
+          if (pending !== null && pending !== current) continue
+          setSlot(1, next, res)
+          preview = next
+          trim([current, next])
+          break
+        }
+      } catch {
+        if (!disposed) callbacks.current.onError()
+      } finally {
+        busy = false
+      }
+    }
+
+    apiRef.current = {
+      setActive: (i: number) => {
+        pending = i
+        runQueue()
+      },
+    }
+
+    // Input kamera
+    const pointer = { x: 0, y: 0, tx: 0, ty: 0, last: -1e9 }
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return
+      pointer.tx = (e.clientX / window.innerWidth) * 2 - 1
+      pointer.ty = -((e.clientY / window.innerHeight) * 2 - 1)
+      pointer.last = performance.now()
+    }
+    window.addEventListener('pointermove', onPointerMove, { passive: true })
+
+    // Loop render (berhenti saat hero tertutup, tidak terlihat, atau tab disembunyikan)
+    let raf = 0
+    let running = false
+    let visible = true
+    let lastFrame = performance.now()
+    const t0 = performance.now()
+
+    const frame = (now: number) => {
+      raf = 0
+      if (!running) return
+      const scroll = Math.min(1, Math.max(0, scrollRef.current))
+      if (scroll >= 0.999 && !transition) {
+        stop()
+        return
+      }
+      const dt = Math.min((now - lastFrame) / 1000, 0.05)
+      lastFrame = now
+      const t = (now - t0) / 1000
+
+      const intro = introStart < 0 ? 0 : easeInOut(Math.min(1, (now - introStart) / INTRO_MS))
+      uniforms.uLife.value = intro
+      uniforms.uFlat.value = intro
+      pUniforms.uOpacity.value = intro * 0.75
+
+      const ready = preview >= 0 && preview !== current && !transition
+      const nextScene = ready ? slotScene[1] : null
+
+      // Lubang ikut kursor; saat kursor tidak di foto, berdenyut di objek khas lanskap berikutnya
+      const L = lensRef.current
+      const following = L.mode === 'follow'
+      let tx = L.x
+      let ty = L.y
+      if (!following && nextScene && cssW >= 1024) {
+        const p = peekToScreen(nextScene)
+        tx = Math.min(cssW * 0.86, Math.max(cssW * 0.66, p.x))
+        ty = Math.min(cssH * 0.62, Math.max(cssH * 0.3, p.y))
+      }
+      if (hover.x < 0) {
+        hover.x = tx
+        hover.y = ty
+      }
+      const posEase = 1 - Math.exp(-dt * (following ? 9 : 3))
+      hover.x += (tx - hover.x) * posEase
+      hover.y += (ty - hover.y) * posEase
+      hover.follow += ((following ? 1 : 0) - hover.follow) * (1 - Math.exp(-dt * 6))
+      const want = !ready || L.mode === 'off' ? 0 : following ? 1 : 0.74 + 0.26 * Math.sin(t * 1.6)
+      hover.amount += (want * intro - hover.amount) * (1 - Math.exp(-dt * 4))
+      uniforms.uReach.value = HOVER_REACH.rest + (HOVER_REACH.follow - HOVER_REACH.rest) * hover.follow
+
+      // Transisi: dunia depan terurai piksel demi piksel sambil melewati kamera,
+      // dunia belakang maju dari kedalamannya dan kabutnya menghilang
+      let frontZ = 0
+      let arrive = 0
+      if (transition) {
+        const k = Math.min(1, (now - transition.start) / TRANSITION_MS)
+        setOrigin(transition.x, transition.y)
+        uniforms.uMix.value = k * 0.75 + (0.5 - 0.5 * Math.cos(Math.PI * k)) * 0.25
+        uniforms.uHover.value = transition.h0 * Math.max(0, 1 - k * 1.5)
+        frontZ = FRONT_FLY * k * k
+        arrive = easeInOut(k)
+        if (k >= 1) {
+          const done = transition.resolve
+          transition = null
+          frontZ = 0
+          arrive = 0
+          done()
+        }
+      } else {
+        setOrigin(hover.x, hover.y)
+        uniforms.uHover.value = hover.amount
+      }
+      front.position.z = frontZ
+      const backZ = -BACK_DIST * (1 - arrive)
+      const apparent = BACK_APPARENT + (1 - BACK_APPARENT) * arrive
+      const fill = (apparent * (CAM_DIST - backZ)) / CAM_DIST
+      back.position.z = backZ
+      back.scale.set(viewW * OVERSCAN * fill, viewH * OVERSCAN * fill, 1)
+      uniforms.uFog.value = BACK_FOG * (1 - arrive)
+
+      const overlay = overlayRef.current
+      if (overlay) {
+        overlay.style.setProperty('--lx', `${hover.x.toFixed(1)}px`)
+        overlay.style.setProperty('--ly', `${hover.y.toFixed(1)}px`)
+        overlay.style.setProperty('--lf', hover.follow.toFixed(3))
+        overlay.style.setProperty('--lo', (ready && L.mode !== 'off' ? intro : 0).toFixed(3))
+      }
+
+      // Kamera: mouse di desktop, melayang pelan saat diam / di perangkat sentuh
+      const idle = isTouch || now - pointer.last > 3500
+      const cx = idle ? Math.sin(t * 0.19) * 0.55 : pointer.tx
+      const cy = idle ? Math.sin(t * 0.15 + 1.3) * 0.4 : pointer.ty
+      const ease = 1 - Math.exp(-dt * (idle ? 0.8 : 2.4))
+      pointer.x += (cx - pointer.x) * ease
+      pointer.y += (cy - pointer.y) * ease
+
+      camera.position.set(
+        pointer.x * SWAY.x * intro,
+        pointer.y * SWAY.y * intro + scroll * 0.45,
+        CAM_DIST - easeInOut(scroll) * 1.9,
+      )
+      camera.lookAt(0, scroll * 0.3, 0)
+
+      uniforms.uTime.value = t
+      pUniforms.uTime.value = t
+      renderer.render(scene, camera)
+      raf = requestAnimationFrame(frame)
+    }
+
+    const start = () => {
+      if (running || !visible || document.hidden || current === -1) return
+      running = true
+      lastFrame = performance.now()
+      raf = requestAnimationFrame(frame)
+    }
+    function stop() {
+      running = false
+      if (raf) cancelAnimationFrame(raf)
+      raf = 0
+    }
+
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting
+      if (visible) start()
+      else stop()
+    })
+    io.observe(container)
+    const onVisibility = () => (document.hidden ? stop() : start())
+    document.addEventListener('visibilitychange', onVisibility)
+    // Frame berhenti sendiri saat hero tertutup penuh; scroll membangunkannya lagi
+    const onScroll = () => start()
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    const onContextLost = (e: Event) => {
+      e.preventDefault()
+      stop()
+      callbacks.current.onError()
+    }
+    canvas.addEventListener('webglcontextlost', onContextLost)
+
+    return () => {
+      disposed = true
+      stop()
+      apiRef.current = null
+      transition?.resolve()
+      io.disconnect()
+      ro.disconnect()
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('scroll', onScroll)
+      document.removeEventListener('visibilitychange', onVisibility)
+      canvas.removeEventListener('webglcontextlost', onContextLost)
+      for (const res of loaded.values()) {
+        res.image.dispose()
+        res.depth.dispose()
+      }
+      loaded.clear()
+      frontGeometry.dispose()
+      frontMaterial.dispose()
+      backGeometry.dispose()
+      backMaterial.dispose()
+      pGeo.dispose()
+      pMat.dispose()
+      renderer.dispose()
+      renderer.forceContextLoss()
+      canvas.remove()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    apiRef.current?.setActive(active)
+  }, [active])
+
+  return <div ref={containerRef} className={className} />
+}

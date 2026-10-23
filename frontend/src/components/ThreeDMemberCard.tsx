@@ -53,7 +53,7 @@ export default function ThreeDMemberCard({ member }: ThreeDMemberCardProps) {
         isHovered ? 'animate-card-jiggle' : ''
       }`}
     >
-      {/* Safwan Style Stacked Paper Backdrops */}
+      {/* Stacked Paper Backdrops */}
       {/* Layer 1 (Bottom) */}
       <div className="absolute inset-0 bg-slate-300 border border-slate-300 rounded-2xl transition-all duration-500 ease-out origin-bottom-left rotate-[2.5deg] translate-x-1.5 group-hover:rotate-[5deg] group-hover:translate-x-3 group-hover:-translate-y-1.5 z-0 shadow-xs" />
 
@@ -109,10 +109,10 @@ export default function ThreeDMemberCard({ member }: ThreeDMemberCardProps) {
             {/* Nama & Prodi Pop-Up Overlay */}
             <div className="absolute bottom-2.5 left-2.5 right-2.5 z-30 pointer-events-none transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-400 ease-out">
               <div className="bg-slate-900/90 backdrop-blur-md text-white px-3 py-2 rounded-xl shadow-xl border border-slate-700/60 flex flex-col items-center justify-center text-center">
-                <span className="font-montserrat font-bold text-xs sm:text-[13px] text-white truncate max-w-full leading-snug">
+                <span className="font-montserrat font-bold text-xs sm:text-[13.2px] text-white truncate max-w-full leading-snug">
                   {member.name}
                 </span>
-                <span className="font-inter text-[11px] text-slate-300 font-medium truncate max-w-full mt-0.5 leading-snug">
+                <span className="font-inter text-[10.4px] text-slate-300 font-medium truncate max-w-full mt-0.5 leading-snug">
                   {member.major}
                 </span>
               </div>
@@ -161,10 +161,10 @@ export default function ThreeDMemberCard({ member }: ThreeDMemberCardProps) {
             {/* Nama & Prodi Pop-Up Overlay */}
             <div className="absolute bottom-2.5 left-2.5 right-2.5 z-30 pointer-events-none transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-400 ease-out">
               <div className="bg-slate-900/90 backdrop-blur-md text-white px-3 py-2 rounded-xl shadow-xl border border-slate-700/60 flex flex-col items-center justify-center text-center">
-                <span className="font-montserrat font-bold text-xs sm:text-[13px] text-white truncate max-w-full leading-snug">
+                <span className="font-montserrat font-bold text-xs sm:text-[13.2px] text-white truncate max-w-full leading-snug">
                   {member.name}
                 </span>
-                <span className="font-inter text-[11px] text-slate-300 font-medium truncate max-w-full mt-0.5 leading-snug">
+                <span className="font-inter text-[10.4px] text-slate-300 font-medium truncate max-w-full mt-0.5 leading-snug">
                   {member.major}
                 </span>
               </div>

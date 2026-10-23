@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Search, ArrowUpRight, X, CheckCircle2, MapPin, Calendar } from 'lucide-react'
 import { ScrambleText } from './ScrambleText'
+import { PROKER_DATA } from '../data/prokerData'
 
 export interface Proker {
   id: string
@@ -22,24 +23,11 @@ export interface Proker {
 }
 
 export default function ProkerSection() {
-  const [prokers, setProkers] = useState<Proker[]>([])
-  const [loading, setLoading] = useState(true)
+  const prokers: Proker[] = PROKER_DATA
+  const loading = false
   const [activeCluster, setActiveCluster] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedProker, setSelectedProker] = useState<Proker | null>(null)
-
-  useEffect(() => {
-    fetch('http://localhost:8080/api/proker')
-      .then(res => res.json())
-      .then((data: Proker[]) => {
-        setProkers(data)
-        setLoading(false)
-      })
-      .catch(err => {
-        console.warn('Backend fetch fallback:', err)
-        setLoading(false)
-      })
-  }, [])
 
   const filtered = prokers.filter((p) => {
     const matchCluster = activeCluster === 'all' || p.cluster.toLowerCase() === activeCluster.toLowerCase()
@@ -57,11 +45,11 @@ export default function ProkerSection() {
       {/* Header */}
       <div className="flex flex-col items-center text-center max-w-3xl mb-12 space-y-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 justify-center">
-          <span className="font-montserrat font-bold text-[32px] sm:text-[44px] md:text-[56px] text-slate-900 leading-none">
+          <span className="font-montserrat font-bold text-[34.6px] sm:text-[44px] md:text-[56px] text-slate-900 leading-none">
             Katalog
           </span>
           <div className="bg-[#ea580c] border-2 border-[#c2410c] flex items-center justify-center px-4 py-1.5 shadow-[0_2px_10px_rgba(234,88,12,0.22)] -rotate-1 rounded-sm">
-            <span className="font-montserrat font-black text-[32px] sm:text-[44px] md:text-[56px] text-white leading-none tracking-tight">
+            <span className="font-montserrat font-black text-[34.6px] sm:text-[44px] md:text-[56px] text-white leading-none tracking-tight">
               <ScrambleText text="Program Kerja" />
             </span>
           </div>
@@ -138,16 +126,16 @@ export default function ProkerSection() {
                       decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#3057a6] text-white">
+                    <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10.4px] font-bold bg-[#3057a6] text-white">
                       {proker.cluster}
                     </span>
-                    <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/90 text-slate-800">
+                    <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10.4px] font-bold bg-white/90 text-slate-800">
                       {proker.status}
                     </span>
                   </div>
 
                   <div className="space-y-1 px-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    <span className="text-[10.4px] font-bold text-slate-400 uppercase tracking-wider block">
                       {proker.category} • {proker.location}
                     </span>
                     <h3 className="font-montserrat font-bold text-sm sm:text-base text-slate-800 line-clamp-1">
@@ -160,7 +148,7 @@ export default function ProkerSection() {
                 </div>
 
                 <div className="pt-3 mt-auto border-t border-slate-200/80 flex items-center justify-between px-1">
-                  <span className="text-[11px] font-semibold text-slate-500">
+                  <span className="text-[10.4px] font-semibold text-slate-500">
                     {proker.impactMetrics}
                   </span>
 

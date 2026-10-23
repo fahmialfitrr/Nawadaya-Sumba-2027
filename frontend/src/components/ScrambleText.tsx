@@ -17,6 +17,7 @@ export function ScrambleText({
   useEffect(() => {
     let intervalId: any
     let timeoutId: any
+    let observer: IntersectionObserver | null = null
 
     const runAnimation = () => {
       const start = Date.now()
@@ -48,9 +49,21 @@ export function ScrambleText({
       }, 40)
     }
 
-    runAnimation()
+    // Acak huruf baru dimulai saat teks terlihat di layar
+    const el = ref.current
+    if (el && 'IntersectionObserver' in window) {
+      observer = new IntersectionObserver(([entry]) => {
+        if (!entry.isIntersecting) return
+        observer?.disconnect()
+        runAnimation()
+      })
+      observer.observe(el)
+    } else {
+      runAnimation()
+    }
 
     return () => {
+      observer?.disconnect()
       clearInterval(intervalId)
       clearTimeout(timeoutId)
     }

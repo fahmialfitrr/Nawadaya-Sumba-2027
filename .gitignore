@@ -1,6 +1,6 @@
 # Portofolio referensi (dilarang commit & push)
 Portfolio-Jundan/
-Safwan-Web-Portofolio/
+*-Web-Portofolio/
 
 # Environment and secrets
 .env
@@ -29,11 +29,6 @@ __unconfig*
 frontend/__unconfig*
 *.local
 
-# Go Binaries
-backend/*.exe
-backend/server.exe
-*.exe
-
 # OS & Editor
 .DS_Store
 Thumbs.db
@@ -52,3 +47,6 @@ frontend/.vscode/
 /hipster.svg
 /hipster.svg.bak
 /hero_img.jpg
+
+# Pengaturan Claude Code pribadi (tidak di-commit)
+.claude/settings.local.json
