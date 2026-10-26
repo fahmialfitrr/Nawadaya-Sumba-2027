@@ -35,7 +35,7 @@ export function ScrollPhoto({
   const animate = !reduce
 
   return (
-    <div ref={ref} className={`relative overflow-hidden bg-ink-800 ${className}`}>
+    <div ref={ref} className={`relative overflow-hidden bg-slate-200 ${className}`}>
       <motion.img
         src={src}
         alt={alt}

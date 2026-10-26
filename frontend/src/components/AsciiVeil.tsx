@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { animate, useMotionValue, useReducedMotion, type MotionValue } from 'framer-motion'
-import { ASCII_GLYPHS, SENJA } from '../data/theme'
+import { ASCII_GLYPHS, BRAND } from '../data/theme'
 
 /**
  * Tirai ASCII di atas foto: sel-sel berwarna latar berubah jadi karakter lalu hilang,
@@ -25,10 +25,15 @@ interface AsciiVeilProps {
 
 const BAND = 0.14
 
+const isDark = (hex: string) => {
+  const n = parseInt(hex.slice(1, 7), 16)
+  return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114 < 128
+}
+
 export default function AsciiVeil({
   progress,
-  color = SENJA.ink800,
-  glyph = SENJA.gold,
+  color = '#e6e9ef',
+  glyph = BRAND.blue,
   cell = 14,
   seed = 1,
   delay = 0,
@@ -57,6 +62,9 @@ export default function AsciiVeil({
       const s = Math.sin(i * 127.1 + seed * 311.7) * 43758.5453
       return s - Math.floor(s)
     }
+
+    // Karakter yang mulai padam: putih di tirai gelap, tinta di tirai terang
+    const fade = isDark(color) ? '#f4f5f7' : '#0f172a'
 
     const draw = (raw: number) => {
       last = raw
@@ -90,7 +98,7 @@ export default function AsciiVeil({
           ctx.fillStyle = color
           ctx.fillRect(px, py, Math.ceil(cw) + 1, Math.ceil(ch) + 1)
           ctx.globalAlpha = 1 - k * 0.7
-          ctx.fillStyle = k < 0.4 ? glyph : SENJA.cream
+          ctx.fillStyle = k < 0.4 ? glyph : fade
           ctx.fillText(ASCII_GLYPHS[Math.floor(rand(i + tick * 13) * ASCII_GLYPHS.length)], px + cw / 2, py + ch / 2)
           ctx.globalAlpha = 1
         }

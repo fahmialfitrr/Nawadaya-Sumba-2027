@@ -42,6 +42,8 @@ interface AsciiRevealProps {
   alt?: string
   className?: string
   style?: CSSProperties
+  /** Dipanggil sekali saat animasi terurai selesai */
+  onDone?: () => void
 }
 
 interface Layout {
@@ -83,12 +85,15 @@ export default function AsciiReveal({
   alt = '',
   className = '',
   style,
+  onDone,
 }: AsciiRevealProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const baseRef = useRef<HTMLCanvasElement>(null)
   const fxRef = useRef<HTMLCanvasElement>(null)
   const glitchRef = useRef<(() => void) | null>(null)
   const [done, setDone] = useState(false)
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
 
   useEffect(() => {
     if (!play) return
@@ -234,6 +239,7 @@ export default function AsciiReveal({
 
     const finish = () => {
       finished = true
+      onDoneRef.current?.()
       fctx.clearRect(0, 0, fx.width, fx.height)
       if (layout && mode === 'ascii') drawFinalAscii(layout)
       if (mode === 'image') {

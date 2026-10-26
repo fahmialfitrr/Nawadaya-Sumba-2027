@@ -4,13 +4,13 @@ import { KKN_LOCATION, formatCoords } from '../data/places'
 
 export default function Footer() {
   return (
-    <footer className="relative z-20 w-full bg-ink-950 text-cream border-t border-white/10">
+    <footer className="relative z-20 w-full bg-deep-ascii text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-14 md:py-16 grid grid-cols-1 md:grid-cols-12 gap-10">
         <div className="md:col-span-5">
           <Link to="/" className="inline-flex items-center gap-2.5 no-underline">
             <img src="/images/brand/logo-kkn.png" alt="Logo KKN-PPM UGM" width={176} height={176} className="w-10 h-10" />
             <span className="font-montserrat font-bold text-lg leading-none">
-              Nawadaya<span className="text-senja-gold">.</span>
+              Nawadaya<span className="text-brand-yellow">.</span>
             </span>
           </Link>
           <p className="mt-4 font-inter text-xs text-white/60 leading-relaxed max-w-sm">
@@ -19,7 +19,7 @@ export default function Footer() {
         </div>
 
         <div className="md:col-span-4">
-          <h3 className="font-mono text-[10.4px] font-medium uppercase tracking-[0.18em] text-senja-gold mb-3">Lokasi</h3>
+          <h3 className="font-mono text-[10.4px] font-medium uppercase tracking-[0.18em] text-brand-yellow mb-3">Lokasi</h3>
           <address className="not-italic font-inter text-xs text-white/75 leading-relaxed">
             {KKN_LOCATION.desa}
             <br />
@@ -31,7 +31,7 @@ export default function Footer() {
         </div>
 
         <nav className="md:col-span-3" aria-label="Tautan footer">
-          <h3 className="font-mono text-[10.4px] font-medium uppercase tracking-[0.18em] text-senja-gold mb-3">Jelajahi</h3>
+          <h3 className="font-mono text-[10.4px] font-medium uppercase tracking-[0.18em] text-brand-yellow mb-3">Jelajahi</h3>
           <ul className="space-y-2 font-inter text-xs">
             <li>
               <Link to="/" className="text-white/75 hover:text-white no-underline transition-colors">Beranda</Link>

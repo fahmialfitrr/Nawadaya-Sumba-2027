@@ -12,8 +12,9 @@ import {
 import { MoveRight } from 'lucide-react'
 import SectionHeading from './SectionHeading'
 import AsciiVeil from './AsciiVeil'
+import { AsciiBloom, BrandFrame } from './Brand'
 import { SUMBA_PHOTOS, type SumbaPhoto } from '../data/sumbaPhotos'
-import { SENJA } from '../data/theme'
+import { BRAND, type BrandColor } from '../data/theme'
 import { PLACES, distanceFromKkn, type Place } from '../data/places'
 
 interface GalleryItem {
@@ -88,7 +89,10 @@ const ITEMS: GalleryItem[] = [
 const BACKDROP_NAMES = ['Rada Mata', 'Humba', 'Kota Tambolaka', 'Marapu']
 
 /** Warna latar section; dipakai juga oleh tirai ASCII agar menyatu */
-const BG = SENJA.ink
+const BG = BRAND.deep
+
+/** Bingkai mini tiap kartu bergiliran warna palet, seperti deretan slide brand kit */
+const CARD_FRAMES: BrandColor[] = ['peach', 'yellow', 'teal', 'rose', 'mint', 'coral']
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -119,7 +123,7 @@ function useIsDesktop() {
 function SectionIntro({ className = '' }: { className?: string }) {
   return (
     <div className={className}>
-      <SectionHeading index="02" eyebrow="Humba Hammu" lead="Mengenal" highlight="Tanah Sumba">
+      <SectionHeading index="02" eyebrow="Humba Hammu" lead="Mengenal" highlight="Tanah Sumba" tone="dark" accent={BRAND.yellow}>
         Tim bertugas di Rada Mata dan Kota Tambolaka. Galeri ini mengenalkan budaya Marapu, tenun ikat, dan lanskap Sumba Barat Daya di sekitarnya.
       </SectionHeading>
     </div>
@@ -150,7 +154,7 @@ function GalleryCard({
       style={motionStyle ? { rotateY: motionStyle.rotateY, scale: motionStyle.scale, transformPerspective: 1500 } : undefined}
       className={`shrink-0 flex flex-col gap-4 ${item.wide ? 'w-[82vw] sm:w-[60vw] lg:w-[44vw]' : 'w-[68vw] sm:w-[42vw] lg:w-[25vw]'}`}
     >
-      <div className="relative h-[52vh] lg:h-[58vh] min-h-[320px] rounded-3xl overflow-hidden bg-ink-800">
+      <div className="relative h-[52vh] lg:h-[58vh] min-h-[320px] overflow-hidden bg-brand-deep">
         <motion.img
           src={item.photo.src}
           alt={item.photo.alt}
@@ -159,22 +163,23 @@ function GalleryCard({
           style={motionStyle ? { x: motionStyle.photoX, scale: 1.3 } : undefined}
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-950/65 via-transparent to-transparent" />
-        <span className="absolute top-4 left-4 font-mono font-bold text-xs text-cream bg-ink-900/70 border border-white/15 px-2.5 py-1 rounded-full">
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-deep/70 via-transparent to-transparent" />
+        <span className="absolute top-[clamp(22px,2.4vw,34px)] left-[clamp(22px,2.4vw,34px)] z-[2] font-mono font-bold text-xs text-slate-900 bg-white px-2.5 py-1 rounded-full">
           [{pad(index + 1)}]
         </span>
-        <span className="absolute bottom-3 right-4 font-mono text-[10.4px] text-cream/70">
+        <span className="absolute bottom-[clamp(20px,2.2vw,30px)] right-[clamp(22px,2.4vw,34px)] z-[2] font-mono text-[10.4px] text-white/75">
           {item.photo.author} · {item.photo.license}
         </span>
-        {reveal && <AsciiVeil progress={reveal} seed={index + 1} color={BG} cell={16} />}
+        <BrandFrame color={CARD_FRAMES[index % CARD_FRAMES.length]} width="clamp(26px,2.6vw,40px)" className="absolute inset-1 z-[1]" />
+        {reveal && <AsciiVeil progress={reveal} seed={index + 1} color={BG} glyph={BRAND.yellow} cell={16} />}
       </div>
       <motion.figcaption style={motionStyle ? { x: motionStyle.captionX } : undefined} className="pr-6">
-        <span className="font-mono text-[10.4px] font-medium uppercase tracking-wider text-senja-gold">
+        <span className="font-mono text-[10.4px] font-medium uppercase tracking-wider text-brand-yellow">
           {item.region}
-          {item.place && <span className="text-dusk normal-case tracking-normal"> · {distanceFromKkn(item.place)} dari Rada Mata</span>}
+          {item.place && <span className="text-white/55 normal-case tracking-normal"> · {distanceFromKkn(item.place)} dari Rada Mata</span>}
         </span>
-        <h3 className="font-montserrat font-bold text-lg text-cream mt-1 mb-1.5">{item.title}</h3>
-        <p className="font-inter text-xs text-mist leading-relaxed max-w-md">{item.desc}</p>
+        <h3 className="font-montserrat font-bold text-lg text-white mt-1 mb-1.5">{item.title}</h3>
+        <p className="font-inter text-xs text-white/70 leading-relaxed max-w-md">{item.desc}</p>
       </motion.figcaption>
     </motion.figure>
   )
@@ -268,7 +273,10 @@ function HorizontalGallery() {
 
   return (
     <section ref={sectionRef} id="sumba" className="relative w-full" style={{ height: `calc(100vh + ${distance}px)`, backgroundColor: BG }}>
-      <div className="sticky top-0 h-screen overflow-hidden flex flex-col justify-center">
+      <div className="sticky top-0 h-screen overflow-hidden flex flex-col justify-center bg-deep-ascii">
+        <BrandFrame color="white" className="absolute inset-1.5 sm:inset-2 z-20 opacity-80" />
+        <AsciiBloom kind="garland" color="peach" className="absolute z-20 left-[-2%] top-[-6%] w-[clamp(200px,22vw,380px)] rotate-[160deg] opacity-80" />
+        <AsciiBloom kind="rose" color="teal" dir={[-1, -1]} className="absolute z-20 right-[-1%] bottom-[-4%] w-[clamp(140px,14vw,240px)] rotate-[190deg] opacity-80" />
         {/* Lapisan latar: nama-nama tempat bergaris tepi, bergerak lambat */}
         <motion.div
           aria-hidden="true"
@@ -280,7 +288,7 @@ function HorizontalGallery() {
               <span className="font-montserrat font-black text-[146px] leading-none tracking-tight whitespace-nowrap text-transparent [-webkit-text-stroke:1.5px_rgba(246,239,228,0.1)]">
                 {name}
               </span>
-              <span className="font-mono font-bold text-5xl text-senja-gold/20 whitespace-nowrap">·:*:·</span>
+              <span className="font-mono font-bold text-5xl text-brand-yellow/20 whitespace-nowrap">·:*:·</span>
             </span>
           ))}
         </motion.div>
@@ -303,17 +311,17 @@ function HorizontalGallery() {
 
         {/* Penanda posisi */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[min(72rem,calc(100vw-4rem))] flex items-center gap-5">
-          <span className="font-mono text-[10.4px] uppercase tracking-wider text-dusk whitespace-nowrap flex items-center gap-2">
+          <span className="font-mono text-[10.4px] uppercase tracking-wider text-white/60 whitespace-nowrap flex items-center gap-2">
             Gulir untuk menjelajah <MoveRight className="w-3.5 h-3.5" />
           </span>
           <div className="h-[2px] flex-1 bg-white/10 rounded-full overflow-hidden">
-            <motion.div style={{ width: progress }} className="h-full bg-senja-gold" />
+            <motion.div style={{ width: progress }} className="h-full bg-brand-yellow" />
           </div>
-          <span className="font-mono text-xs tabular-nums text-cream/80 whitespace-nowrap">
-            <span className="text-senja-gold font-bold">{pad(current + 1)}</span>
-            <span className="text-dusk"> / {pad(ITEMS.length)}</span>
+          <span className="font-mono text-xs tabular-nums text-white/80 whitespace-nowrap">
+            <span className="text-brand-yellow font-bold">{pad(current + 1)}</span>
+            <span className="text-white/45"> / {pad(ITEMS.length)}</span>
           </span>
-          <span className="hidden xl:block w-40 truncate font-mono text-[10.4px] text-dusk">{ITEMS[current].title}</span>
+          <span className="hidden xl:block w-40 truncate font-mono text-[10.4px] text-white/55">{ITEMS[current].title}</span>
         </div>
       </div>
     </section>
@@ -348,9 +356,10 @@ function SwipeCard({ item, index }: { item: GalleryItem; index: number }) {
 /** Mobile / reduced motion: geser horizontal biasa dengan snap */
 function SwipeGallery({ animated }: { animated: boolean }) {
   return (
-    <section id="sumba" className="relative w-full py-20 md:py-28" style={{ backgroundColor: BG }}>
-      <SectionIntro className="px-4 sm:px-6 md:px-8 max-w-6xl mx-auto mb-10" />
-      <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory scroll-px-4 sm:scroll-px-6 md:scroll-px-8 px-4 sm:px-6 md:px-8 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <section id="sumba" className="relative isolate w-full py-24 md:py-28 bg-deep-ascii overflow-hidden">
+      <BrandFrame color="white" className="absolute inset-1.5 z-20 opacity-80" />
+      <SectionIntro className="px-[clamp(44px,7vw,72px)] max-w-6xl mx-auto mb-10" />
+      <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory scroll-px-[clamp(44px,7vw,72px)] px-[clamp(44px,7vw,72px)] pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ITEMS.map((item, i) =>
           animated ? (
             <SwipeCard key={item.title} item={item} index={i} />
@@ -361,7 +370,7 @@ function SwipeGallery({ animated }: { animated: boolean }) {
           ),
         )}
       </div>
-      <p className="px-4 sm:px-6 md:px-8 mt-4 font-mono text-[10.4px] uppercase tracking-wider text-dusk flex items-center gap-2">
+      <p className="px-[clamp(44px,7vw,72px)] mt-4 font-mono text-[10.4px] uppercase tracking-wider text-white/60 flex items-center gap-2">
         Geser untuk melihat lainnya <MoveRight className="w-3.5 h-3.5" />
       </p>
     </section>

@@ -12,15 +12,21 @@ import {
 import { ArrowDown, ArrowRight, ArrowUpRight, MousePointerClick, Pointer } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import AsciiReveal from './AsciiReveal'
+import { ScrambleText } from './ScrambleText'
 import { HERO_OVERSCAN, HERO_SCENES, type HeroScene } from '../data/heroScenes'
 import { KKN_LOCATION, distanceFromKkn } from '../data/places'
 
 const HeroSceneCanvas = lazy(() => import('./HeroScene'))
 
-const SCENE_MS = 9000
 const WIPE_LOCK_MS = 2000
 /** Judul tetap dimunculkan bila WebGL belum siap dalam waktu ini */
 const REVEAL_FALLBACK_MS = 1800
+/**
+ * Petunjuk "klik untuk ganti lanskap" di dekat kursor: muncul 3 dtk setelah kuda & bunga
+ * selesai terurai dari ASCII, tampil 4 dtk, lalu berulang tiap 20 dtk. Siklusnya mulai
+ * lagi dari awal setiap kali beranda dibuka (refresh atau datang dari halaman lain).
+ */
+const HINT = { firstDelay: 3000, show: 4000, every: 20000 }
 
 const ART = {
   wordmark: { src: '/images/hero/wordmark.webp', w: 1170, h: 641 },
@@ -49,9 +55,12 @@ export default function HomeHero() {
   const [revealed, setRevealed] = useState(false)
   const [active, setActive] = useState(0)
   const [prev, setPrev] = useState(0)
-  const [inView, setInView] = useState(true)
-  const [hinted, setHinted] = useState(false)
+  const [atTop, setAtTop] = useState(true)
+  const [assetsDone, setAssetsDone] = useState(false)
+  const [hintOn, setHintOn] = useState(false)
   const [isTouch, setIsTouch] = useState(false)
+  const hintRef = useRef<HTMLDivElement>(null)
+  const pointerRef = useRef<{ x: number; y: number } | null>(null)
 
   const lockRef = useRef(0)
   const originRef = useRef<{ x: number; y: number } | null>(null)
@@ -71,6 +80,26 @@ export default function HomeHero() {
     const t = setTimeout(() => setRevealed(true), REVEAL_FALLBACK_MS)
     return () => clearTimeout(t)
   }, [])
+  useEffect(() => {
+    if (!revealed) return
+    const t = setTimeout(() => setAssetsDone(true), 4000)
+    return () => clearTimeout(t)
+  }, [revealed])
+
+  useEffect(() => {
+    if (!assetsDone) return
+    let t: ReturnType<typeof setTimeout>
+    const show = () => {
+      setHintOn(true)
+      t = setTimeout(hide, HINT.show)
+    }
+    const hide = () => {
+      setHintOn(false)
+      t = setTimeout(show, HINT.every - HINT.show)
+    }
+    t = setTimeout(show, HINT.firstDelay)
+    return () => clearTimeout(t)
+  }, [assetsDone])
 
   useEffect(() => {
     const el = heroRef.current
@@ -102,8 +131,8 @@ export default function HomeHero() {
   const cover = useTransform(scrollY, (v) => Math.min(1, Math.max(0, v / heroHeight.current)))
   useMotionValueEvent(cover, 'change', (v) => {
     scrollRef.current = v
-    const visible = v < 0.6
-    if (visible !== inView) setInView(visible)
+    const top = v < 0.1
+    if (top !== atTop) setAtTop(top)
   })
   // Keluar dari sampul: judul mendekat lalu memudar, bingkai melebar seolah kamera
   // melewatinya, bunga terbang ke tepi, teks pendukung pergi lebih dulu.
@@ -126,8 +155,6 @@ export default function HomeHero() {
 
   const scene = HERO_SCENES[active]
   const nextScene = HERO_SCENES[(active + 1) % HERO_SCENES.length]
-  const autoplay = !reduce && (mode === 'static' || ready3d)
-  const paused = !autoplay || !inView
   const ease = [0.22, 1, 0.36, 1] as const
 
   // Gelombang ASCII memancar dari titik (x, y); tanpa titik = dari tengah layar
@@ -145,13 +172,38 @@ export default function HomeHero() {
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
 
+  // Petunjuk mengikuti kursor; tanpa kursor (layar sentuh) tampil di tengah atas judul
+  const placeHint = () => {
+    const el = hintRef.current
+    const hero = heroRef.current
+    if (!el || !hero) return
+    const p = pointerRef.current
+    if (!p) {
+      el.style.transform = `translate3d(${hero.clientWidth / 2}px, ${hero.clientHeight * 0.3}px, 0) translateX(-50%)`
+      return
+    }
+    const flip = p.x > hero.clientWidth - 300
+    el.style.transform = flip
+      ? `translate3d(${p.x - 16}px, ${p.y + 22}px, 0) translateX(-100%)`
+      : `translate3d(${p.x + 18}px, ${p.y + 22}px, 0)`
+  }
+  useEffect(() => {
+    if (hintOn) placeHint()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hintOn])
+
   const onPointerMove = (e: ReactPointerEvent<HTMLElement>) => {
-    if (e.pointerType !== 'mouse' || reduce) return
+    if (e.pointerType !== 'mouse') return
+    pointerRef.current = localPoint(e)
+    placeHint()
+    if (reduce) return
     mx.set((e.clientX / window.innerWidth) * 2 - 1)
     my.set((e.clientY / window.innerHeight) * 2 - 1)
   }
 
   const onPointerLeave = () => {
+    pointerRef.current = null
+    placeHint()
     mx.set(0)
     my.set(0)
   }
@@ -161,14 +213,12 @@ export default function HomeHero() {
     if ((e.target as Element).closest(UI_SELECTOR)) return
     if (window.getSelection()?.toString()) return
     const p = localPoint(e)
-    setHinted(true)
     goNext(p.x, p.y)
   }
 
   const onNextButton = (e: ReactMouseEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     const p = localPoint({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })
-    setHinted(true)
     goNext(p.x, p.y)
   }
 
@@ -320,6 +370,26 @@ export default function HomeHero() {
 
       <motion.div style={{ opacity: darken }} className="absolute inset-0 z-[8] pointer-events-none bg-ink-900" />
 
+      {/* Petunjuk di dekat kursor: klik foto untuk ganti lanskap */}
+      <div ref={hintRef} aria-hidden="true" className="absolute left-0 top-0 z-20 pointer-events-none will-change-transform">
+        <AnimatePresence>
+          {hintOn && atTop && (
+            <motion.span
+              initial={{ opacity: 0, scale: 0.9, y: 6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 4 }}
+              transition={{ duration: 0.3, ease }}
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-white text-slate-900 pl-1.5 pr-3.5 py-1.5 font-mono text-[10.4px] font-bold uppercase tracking-wider shadow-[0_10px_30px_rgba(11,18,32,0.35)]"
+            >
+              <span className="w-6 h-6 rounded-full bg-brand-blue text-white flex items-center justify-center">
+                {isTouch ? <Pointer className="w-3.5 h-3.5" /> : <MousePointerClick className="w-3.5 h-3.5" />}
+              </span>
+              <ScrambleText text={isTouch ? 'Ketuk untuk ganti lanskap' : 'Klik untuk ganti lanskap'} duration={700} />
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Konten */}
       <div
         className="relative z-10 h-full w-full flex flex-col items-center px-[clamp(24px,5.5vw,104px)] pt-[clamp(80px,11vh,120px)] pb-[clamp(32px,4.4vw,80px)] pointer-events-none"
@@ -362,6 +432,7 @@ export default function HomeHero() {
                 dir={[1, -1.2]}
                 play={revealed}
                 glitchKey={active}
+                onDone={() => setAssetsDone(true)}
                 className="w-full h-full opacity-[0.82]"
               />
             </motion.div>
@@ -420,17 +491,10 @@ export default function HomeHero() {
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="relative mt-3 h-[2px] rounded-full bg-white/20 overflow-hidden">
-              {autoplay ? (
-                <span
-                  key={`p-${active}`}
-                  onAnimationEnd={() => goNext()}
-                  className="hero-progress absolute inset-0 bg-white"
-                  style={{ animationDuration: `${SCENE_MS}ms`, animationPlayState: paused ? 'paused' : 'running' }}
-                />
-              ) : (
-                <span className="absolute inset-0 bg-white/70" />
-              )}
+            <div className="mt-3 flex gap-1.5" aria-hidden="true">
+              {HERO_SCENES.map((s, i) => (
+                <span key={s.id} className={`h-[2px] flex-1 rounded-full transition-colors duration-500 ${i === active ? 'bg-white' : 'bg-white/25'}`} />
+              ))}
             </div>
             <p className="mt-2 font-inter text-[10.4px] text-white/60 leading-relaxed text-left">
               {sceneMeta(scene)}
@@ -445,14 +509,7 @@ export default function HomeHero() {
                 </>
               )}
             </p>
-            <p
-              aria-hidden={hinted}
-              className="mt-2 inline-flex items-center gap-1.5 font-inter text-[10.4px] font-semibold text-white/80 transition-opacity duration-500"
-              style={{ opacity: hinted ? 0 : 1 }}
-            >
-              {isTouch ? <Pointer className="w-3.5 h-3.5" /> : <MousePointerClick className="w-3.5 h-3.5" />}
-              {isTouch ? 'Ketuk foto untuk berganti lanskap' : 'Klik foto untuk berganti lanskap'}
-            </p>
+            <p className="sr-only">Klik atau ketuk foto untuk berganti lanskap.</p>
           </div>
 
           <div className="order-1 lg:order-2 flex flex-col items-center text-center">

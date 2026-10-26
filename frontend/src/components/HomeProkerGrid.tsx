@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowUpRight, X } from 'lucide-react'
 import SectionHeading from './SectionHeading'
+import { BrandFrame, ScriptWord, Slide } from './Brand'
 import { Reveal, ScrollPhoto } from './ScrollPhoto'
 import { SUMBA_PHOTOS, type SumbaPhoto } from '../data/sumbaPhotos'
-import { CLUSTER_COLOR, SENJA, type Cluster } from '../data/theme'
+import { BRAND, CLUSTER_THEME, type Cluster } from '../data/theme'
 
 interface ProkerItem {
   id: string
@@ -83,14 +85,12 @@ const FEATURED_PROKER: ProkerItem[] = [
 
 const FILTERS: Array<'Semua' | Cluster> = ['Semua', 'Saintek', 'Soshum', 'Medika', 'Agro']
 
-/** Label kluster bergaya mono: [ SAINTEK ] dengan warna kluster */
+/** Label kluster: blok warna kluster dengan teks gelap */
 function ClusterTag({ cluster, extra }: { cluster: Cluster; extra?: string }) {
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-md bg-ink-900/85 border px-2 py-0.5 font-mono text-[10.4px] font-bold uppercase tracking-wider"
-      style={{ color: CLUSTER_COLOR[cluster], borderColor: `${CLUSTER_COLOR[cluster]}55` }}
-    >
-      [{cluster}]{extra && <span className="font-medium normal-case tracking-normal text-mist">{extra}</span>}
+    <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-mono text-[10.4px] font-bold uppercase tracking-wider text-slate-900" style={{ backgroundColor: CLUSTER_THEME[cluster].color }}>
+      {cluster}
+      {extra && <span className="font-medium normal-case tracking-normal text-slate-900/75">· {extra}</span>}
     </span>
   )
 }
@@ -98,6 +98,9 @@ function ClusterTag({ cluster, extra }: { cluster: Cluster; extra?: string }) {
 export default function HomeProkerGrid() {
   const [activeCategory, setActiveCategory] = useState<'Semua' | Cluster>('Semua')
   const [selected, setSelected] = useState<ProkerItem | null>(null)
+  // Modal dirender ke <body> agar berada di atas navbar & tirai
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   const filtered = activeCategory === 'Semua' ? FEATURED_PROKER : FEATURED_PROKER.filter((p) => p.cluster === activeCategory)
 
@@ -109,76 +112,111 @@ export default function HomeProkerGrid() {
   }, [selected])
 
   return (
-    <section id="projects" className="w-full py-24 md:py-32 px-4 sm:px-6 md:px-8 max-w-6xl mx-auto scroll-mt-20">
+    <Slide
+      id="projects"
+      frame="yellow"
+      blooms={[
+        { kind: 'rose', color: 'rose', className: 'right-[-2%] top-[-3%] w-[clamp(140px,17vw,280px)] rotate-[160deg]' },
+        { kind: 'garland', color: 'rose', className: 'left-[-3%] bottom-[-5%] w-[clamp(180px,20vw,340px)] rotate-[10deg]', dir: [1, -1] },
+      ]}
+    >
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-10">
+          <SectionHeading index="03" eyebrow="Program Kerja" lead="Program" highlight="Unggulan" accent={BRAND.magenta}>
+            Rencana kerja lintas kluster untuk Desa Rada Mata. Pilih kluster untuk menyaring program.
+          </SectionHeading>
 
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-14">
-        <SectionHeading index="03" eyebrow="Program Kerja" lead="Program" highlight="Unggulan">
-          Rencana kerja lintas kluster untuk Desa Rada Mata. Pilih kluster untuk menyaring program.
-        </SectionHeading>
-
-        <Reveal delay={0.1} className="lg:shrink-0">
-          <div className="flex flex-wrap lg:flex-nowrap gap-2" role="group" aria-label="Saring berdasarkan kluster">
-            {FILTERS.map((cat) => {
-              const on = activeCategory === cat
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setActiveCategory(cat)}
-                  aria-pressed={on}
-                  className={`font-mono text-xs px-3.5 py-2 rounded-full border transition-colors cursor-pointer ${on
-                    ? 'bg-cream border-cream text-ink-900 font-bold'
-                    : 'bg-ink-850/60 border-white/15 text-mist hover:text-cream hover:border-white/35'
+          <Reveal delay={0.1} className="lg:shrink-0">
+            <div className="flex flex-wrap lg:flex-nowrap gap-2" role="group" aria-label="Saring berdasarkan kluster">
+              {FILTERS.map((cat) => {
+                const on = activeCategory === cat
+                const c = cat === 'Semua' ? null : CLUSTER_THEME[cat]
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    aria-pressed={on}
+                    className={`font-inter text-xs px-4 py-2 rounded-full border transition-colors cursor-pointer ${
+                      on ? 'font-semibold text-slate-900' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
                     }`}
-                >
-                  {on ? `[${cat}]` : cat}
-                </button>
-              )
-            })}
-          </div>
-        </Reveal>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filtered.map((item, idx) => (
-          <Reveal key={item.id} delay={(idx % 3) * 0.1} className="group w-full h-full">
-            <article className="frame-corners h-full flex flex-col rounded-2xl bg-ink-850/85 border border-white/10 group-hover:border-white/20 p-3 sm:p-4 pb-5 transition-colors duration-300">
-              <ScrollPhoto src={item.photo.src} alt={item.photo.alt} strength={6} delay={(idx % 3) * 0.1} veil={SENJA.ink850} className="w-full aspect-[16/10] rounded-xl">
-                <span className="absolute top-2.5 left-2.5">
-                  <ClusterTag cluster={item.cluster} extra={item.category} />
-                </span>
-              </ScrollPhoto>
-
-              <div className="px-1 pt-4 flex-1">
-                <h3 className="font-montserrat font-bold text-lg text-cream leading-snug">{item.title}</h3>
-                <p className="font-inter text-xs text-mist leading-relaxed mt-2 line-clamp-3">{item.description}</p>
-              </div>
-
-              <div className="pt-4 mt-4 flex items-center justify-between gap-3 border-t border-dashed border-white/15 px-1">
-                <span className="leading-tight">
-                  <span className="block font-mono text-[10.4px] uppercase tracking-wider text-dusk">Target</span>
-                  <span className="font-inter font-semibold text-cream text-xs">{item.target}</span>
-                </span>
-                <button
-                  onClick={() => setSelected(item)}
-                  type="button"
-                  className="bg-senja-amber hover:bg-senja-gold text-ink-900 font-inter font-semibold text-xs px-4 py-2 rounded-full flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-                >
-                  Detail
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </article>
+                    style={on ? { backgroundColor: c ? c.color : BRAND.yellow, borderColor: c ? c.color : BRAND.yellow } : undefined}
+                  >
+                    {cat}
+                  </button>
+                )
+              })}
+            </div>
           </Reveal>
-        ))}
+        </div>
+
+        {/* Banner "Kluster ___" ala slide brand kit saat satu kluster dipilih */}
+        <AnimatePresence mode="wait">
+          {activeCategory !== 'Semua' && (
+            <motion.div
+              key={activeCategory}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.35 }}
+              className="relative mb-10 overflow-hidden"
+            >
+              <div className="relative flex items-end gap-1 px-[clamp(36px,4vw,56px)] py-[clamp(26px,3vw,40px)] bg-white">
+                <BrandFrame color={CLUSTER_THEME[activeCategory].frame} width="clamp(28px,3vw,44px)" className="absolute inset-0" />
+                <span className="font-montserrat font-extrabold text-lg sm:text-xl text-slate-900 leading-none mb-[0.6em]">Kluster</span>
+                <ScriptWord key={activeCategory} text={activeCategory} color={CLUSTER_THEME[activeCategory].text} className="h-[clamp(52px,6vw,80px)]" />
+                <span className="ml-auto self-center font-mono text-[10.4px] uppercase tracking-wider text-slate-500">
+                  {filtered.length} program
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
+          {filtered.map((item, idx) => (
+            <Reveal key={item.id} delay={(idx % 3) * 0.1} className="group w-full h-full">
+              <article
+                className="h-full flex flex-col rounded-2xl bg-white border border-slate-200 border-t-4 p-3 sm:p-4 pb-5 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.35)] group-hover:-translate-y-1 group-hover:shadow-[0_24px_50px_-24px_rgba(15,23,42,0.45)] transition-[transform,box-shadow] duration-300"
+                style={{ borderTopColor: CLUSTER_THEME[item.cluster].color }}
+              >
+                <ScrollPhoto src={item.photo.src} alt={item.photo.alt} strength={6} delay={(idx % 3) * 0.1} veil="#ffffff" className="w-full aspect-[16/10] rounded-xl">
+                  <span className="absolute top-2.5 left-2.5">
+                    <ClusterTag cluster={item.cluster} extra={item.category} />
+                  </span>
+                </ScrollPhoto>
+
+                <div className="px-1 pt-4 flex-1">
+                  <h3 className="font-montserrat font-bold text-lg text-slate-900 leading-snug">{item.title}</h3>
+                  <p className="font-inter text-xs text-slate-600 leading-relaxed mt-2 line-clamp-3">{item.description}</p>
+                </div>
+
+                <div className="pt-4 mt-4 flex items-center justify-between gap-3 border-t border-dashed border-slate-200 px-1">
+                  <span className="leading-tight">
+                    <span className="block font-mono text-[10.4px] uppercase tracking-wider text-slate-400">Target</span>
+                    <span className="font-inter font-semibold text-slate-800 text-xs">{item.target}</span>
+                  </span>
+                  <button
+                    onClick={() => setSelected(item)}
+                    type="button"
+                    className="bg-brand-blue hover:bg-[#254587] text-white font-inter font-semibold text-xs px-4 py-2 rounded-full flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                  >
+                    Detail
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </article>
+            </Reveal>
+          ))}
+        </div>
       </div>
 
       {/* Modal detail */}
-      <AnimatePresence>
+      {mounted && createPortal(<AnimatePresence>
         {selected && (
           <motion.div
             key="backdrop"
-            className="fixed inset-0 z-[60] bg-ink-950/80 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[60] bg-slate-950/70 flex items-center justify-center p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -188,57 +226,60 @@ export default function HomeProkerGrid() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="proker-title"
-              className="bg-ink-850 border border-white/10 text-cream rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+              className="relative bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl"
               initial={{ opacity: 0, y: 24, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
               transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="relative aspect-[16/9] w-full bg-ink-800">
+              <div className="relative aspect-[16/9] w-full bg-slate-200">
                 <img src={selected.photo.src} alt={selected.photo.alt} className="w-full h-full object-cover" />
+                <BrandFrame color={CLUSTER_THEME[selected.cluster].frame} width="30px" className="absolute inset-1" />
                 <button
                   onClick={() => setSelected(null)}
                   type="button"
                   aria-label="Tutup"
-                  className="absolute top-3 right-3 w-9 h-9 rounded-full bg-ink-900/85 border border-white/15 text-cream flex items-center justify-center hover:bg-ink-900 transition-colors cursor-pointer"
+                  className="absolute top-4 right-4 z-[2] w-9 h-9 rounded-full bg-white text-slate-900 flex items-center justify-center hover:bg-slate-100 transition-colors cursor-pointer shadow"
                 >
                   <X className="w-4 h-4" />
                 </button>
-                <span className="absolute bottom-3 left-3">
+                <span className="absolute bottom-4 left-4 z-[2]">
                   <ClusterTag cluster={selected.cluster} />
                 </span>
               </div>
 
               <div className="p-6 sm:p-7 space-y-5">
                 <div>
-                  <h3 id="proker-title" className="font-montserrat font-bold text-xl text-cream leading-tight">
+                  <h3 id="proker-title" className="font-montserrat font-bold text-xl text-slate-900 leading-tight">
                     {selected.title}
                   </h3>
-                  <p className="font-mono text-[10.4px] uppercase tracking-wider text-senja-gold mt-2">
+                  <p className="font-mono text-[10.4px] uppercase tracking-wider mt-2" style={{ color: CLUSTER_THEME[selected.cluster].text }}>
                     {selected.category} · Target: {selected.target}
                   </p>
                 </div>
-                <p className="font-inter text-sm text-mist leading-relaxed">{selected.description}</p>
-                <div className="pt-4 border-t border-dashed border-white/15">
-                  <span className="font-mono text-[10.4px] uppercase tracking-[0.18em] text-dusk block mb-3">Indikator keberhasilan</span>
+                <p className="font-inter text-sm text-slate-600 leading-relaxed">{selected.description}</p>
+                <div className="pt-4 border-t border-dashed border-slate-200">
+                  <span className="font-mono text-[10.4px] uppercase tracking-[0.18em] text-slate-400 block mb-3">Indikator keberhasilan</span>
                   <ul className="space-y-2">
                     {selected.goals.map((g) => (
-                      <li key={g} className="flex items-start gap-2 font-inter text-xs text-cream/90">
-                        <span className="font-mono font-bold text-senja-gold shrink-0">[+]</span>
+                      <li key={g} className="flex items-start gap-2 font-inter text-xs text-slate-700">
+                        <span className="font-mono font-bold shrink-0" style={{ color: CLUSTER_THEME[selected.cluster].text }}>
+                          [+]
+                        </span>
                         <span>{g}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-                <p className="font-mono text-[10.4px] text-dusk">
+                <p className="font-mono text-[10.4px] text-slate-400">
                   Foto ilustrasi: {selected.photo.caption} — {selected.photo.author}, {selected.photo.license}
                 </p>
               </div>
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
-    </section>
+      </AnimatePresence>, document.body)}
+    </Slide>
   )
 }

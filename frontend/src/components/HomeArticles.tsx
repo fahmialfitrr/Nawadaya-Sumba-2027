@@ -2,7 +2,8 @@ import { Clock } from 'lucide-react'
 import SectionHeading from './SectionHeading'
 import { Reveal, ScrollPhoto } from './ScrollPhoto'
 import { SUMBA_PHOTOS, type SumbaPhoto } from '../data/sumbaPhotos'
-import { SENJA } from '../data/theme'
+import { Slide } from './Brand'
+import { BRAND } from '../data/theme'
 
 interface ArticleItem {
   id: string
@@ -47,15 +48,22 @@ const ARTICLES: ArticleItem[] = [
 
 export default function HomeArticles() {
   return (
-    <section className="w-full py-24 md:py-32 px-4 sm:px-6 md:px-8 max-w-6xl mx-auto">
+    <Slide
+      frame="rose"
+      blooms={[
+        { kind: 'rose', color: 'yellow', className: 'left-[-2%] top-[-3%] w-[clamp(140px,16vw,260px)] rotate-[170deg]' },
+        { kind: 'flower', color: 'yellow', className: 'right-[-2%] bottom-[-5%] w-[clamp(130px,15vw,250px)] rotate-[150deg]', dir: [-1, -1] },
+      ]}
+    >
+    <div className="w-full max-w-6xl mx-auto">
 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-14">
-        <SectionHeading index="05" eyebrow="Cerita Lapangan" lead="Catatan &" highlight="Jurnal">
+        <SectionHeading index="05" eyebrow="Cerita Lapangan" lead="Catatan &" highlight="Jurnal" accent={BRAND.coral}>
           Refleksi 50 hari hidup berdampingan bersama warga Rada Mata dan Sumba Barat Daya.
         </SectionHeading>
         <Reveal delay={0.1}>
-          <span className="inline-flex items-center gap-2 rounded-full border border-dashed border-white/20 px-4 py-2 font-mono text-[10.4px] uppercase tracking-wider text-dusk">
-            <span className="text-senja-gold">&gt;_</span> Halaman jurnal segera hadir
+          <span className="inline-flex items-center gap-2 rounded-full border border-dashed border-slate-300 bg-white/70 px-4 py-2 font-mono text-[10.4px] uppercase tracking-wider text-slate-500">
+            <span className="text-brand-coral font-bold">&gt;_</span> Halaman jurnal segera hadir
           </span>
         </Reveal>
       </div>
@@ -63,26 +71,27 @@ export default function HomeArticles() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {ARTICLES.map((art, idx) => (
           <Reveal key={art.id} delay={idx * 0.1} className="group w-full h-full">
-            <article className="frame-corners h-full flex flex-col rounded-2xl bg-ink-850/85 border border-white/10 group-hover:border-white/20 p-4 transition-colors duration-300">
-              <ScrollPhoto src={art.photo.src} alt={art.photo.alt} strength={6} delay={idx * 0.1} veil={SENJA.ink850} className="aspect-[16/10] w-full rounded-xl">
-                <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-ink-900/85 border border-white/15 font-mono text-[10.4px] text-cream flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-senja-gold" />
+            <article className="h-full flex flex-col rounded-2xl bg-white border border-slate-200 p-4 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.35)] group-hover:-translate-y-1 group-hover:shadow-[0_24px_50px_-24px_rgba(15,23,42,0.45)] transition-[transform,box-shadow] duration-300">
+              <ScrollPhoto src={art.photo.src} alt={art.photo.alt} strength={6} delay={idx * 0.1} veil="#ffffff" className="aspect-[16/10] w-full rounded-xl">
+                <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-white font-mono text-[10.4px] text-slate-800 flex items-center gap-1 shadow-sm">
+                  <Clock className="w-3 h-3 text-brand-coral" />
                   <span>{art.readTime}</span>
                 </div>
               </ScrollPhoto>
 
               <div className="pt-4 flex-1 flex flex-col">
-                <span className="font-mono text-[10.4px] uppercase tracking-wider text-dusk">
-                  <span className="text-senja-gold">{String(idx + 1).padStart(2, '0')}</span> · {art.date} · {art.author}
+                <span className="font-mono text-[10.4px] uppercase tracking-wider text-slate-400">
+                  <span className="text-brand-coral font-bold">{String(idx + 1).padStart(2, '0')}</span> · {art.date} · {art.author}
                 </span>
-                <h3 className="font-montserrat font-bold text-lg text-cream leading-snug mt-2">{art.title}</h3>
-                <p className="font-inter text-xs text-mist leading-relaxed mt-2 line-clamp-4">{art.excerpt}</p>
+                <h3 className="font-montserrat font-bold text-lg text-slate-900 leading-snug mt-2">{art.title}</h3>
+                <p className="font-inter text-xs text-slate-600 leading-relaxed mt-2 line-clamp-4">{art.excerpt}</p>
               </div>
             </article>
           </Reveal>
         ))}
       </div>
 
-    </section>
+    </div>
+    </Slide>
   )
 }

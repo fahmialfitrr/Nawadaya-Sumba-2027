@@ -1,17 +1,43 @@
 import { useState, lazy, Suspense } from 'react'
 import { Search } from 'lucide-react'
-import { ScrambleText } from './ScrambleText'
+import { BrandFrame, ScriptWord } from './Brand'
 import ThreeDMemberCard from './ThreeDMemberCard'
 import { MEMBERS_DATA, type Member } from '../data/membersData'
+import { BRAND, CLUSTER_THEME, type Cluster } from '../data/theme'
 
 const ParticleCursor = lazy(() => import('./ParticleCursor'))
 
-const CLUSTERS = [
-  { id: 'saintek', title: 'Anggota Kluster Saintek', bg: 'bg-[#0891b2]' },
-  { id: 'soshum', title: 'Anggota Kluster Soshum', bg: 'bg-[#a2258d]' },
-  { id: 'medika', title: 'Anggota Kluster Medika', bg: 'bg-[#e11d48]' },
-  { id: 'agro', title: 'Anggota Kluster Agro', bg: 'bg-[#ea580c]' },
-] as const
+const CLUSTERS: Array<{ id: string; name: Cluster }> = [
+  { id: 'saintek', name: 'Saintek' },
+  { id: 'soshum', name: 'Soshum' },
+  { id: 'medika', name: 'Medika' },
+  { id: 'agro', name: 'Agro' },
+]
+
+/** Label jenjang (DPL, Kormanit, Kormater) */
+function LevelLabel({ children, className = 'mb-4' }: { children: string; className?: string }) {
+  return (
+    <div className={`flex items-center gap-2 rounded-full bg-brand-blue px-4 py-1.5 shadow-xs ${className}`}>
+      <span className="font-mono font-bold text-[10.4px] text-brand-yellow">[#]</span>
+      <span className="font-montserrat font-bold text-xs sm:text-sm text-white tracking-wider uppercase">{children}</span>
+    </div>
+  )
+}
+
+/** Banner "Anggota Kluster ___" ala slide judul brand kit */
+function ClusterBanner({ name }: { name: Cluster }) {
+  const t = CLUSTER_THEME[name]
+  return (
+    <div className="relative mb-10 flex items-end gap-1.5 bg-white px-[clamp(34px,4vw,56px)] py-[clamp(22px,2.6vw,34px)] shadow-[0_18px_40px_-26px_rgba(15,23,42,0.4)]">
+      <BrandFrame color={t.frame} width="clamp(26px,2.8vw,40px)" className="absolute inset-0" />
+      <h3 className="sr-only">Anggota Kluster {name}</h3>
+      <span aria-hidden="true" className="font-montserrat font-extrabold text-base sm:text-lg text-slate-900 leading-none mb-[0.7em] whitespace-nowrap">
+        Anggota Kluster
+      </span>
+      <ScriptWord text={name} color={t.text} className="h-[clamp(46px,5.4vw,72px)]" />
+    </div>
+  )
+}
 
 export default function BaganOrganisasi() {
   const members: Member[] = MEMBERS_DATA
@@ -57,7 +83,9 @@ export default function BaganOrganisasi() {
     displayedClusters.some((c) => getClusterMembers(c.id).length > 0)
 
   return (
-    <div className="w-full min-h-screen bg-dot-grid pt-24 pb-20 px-4 sm:px-6 max-w-7xl mx-auto flex flex-col items-center relative isolate">
+    <div className="relative isolate w-full min-h-screen bg-paper-ascii overflow-hidden">
+    <BrandFrame color="blue" className="absolute inset-1.5 sm:inset-2 z-[2]" />
+    <div className="w-full pt-28 pb-24 px-[clamp(44px,6vw,96px)] max-w-7xl mx-auto flex flex-col items-center relative">
       {/* Particle Cursor Effect Three.js (Lazy loaded, isolated layer) */}
       <Suspense fallback={null}>
         <ParticleCursor className="opacity-90 z-[1]" />
@@ -65,16 +93,16 @@ export default function BaganOrganisasi() {
 
       {/* Header */}
       <div className="flex flex-col items-center text-center max-w-3xl mb-10 space-y-3 relative z-10">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 justify-center">
-          <span className="font-montserrat font-bold text-[34.6px] sm:text-[44px] md:text-[56px] text-slate-900 leading-none">
+        <span className="font-mono font-medium text-[10.4px] md:text-xs uppercase tracking-[0.2em] text-slate-500">
+          <span className="font-bold text-brand-blue">[Tim]</span> ·:· Nawadaya Sumba
+        </span>
+        <h1 className="flex flex-col items-center">
+          <span className="sr-only">Bagan Anggota</span>
+          <span aria-hidden="true" className="font-montserrat font-extrabold text-[34.6px] sm:text-[44px] md:text-[56px] text-slate-900 leading-none tracking-tight">
             Bagan
           </span>
-          <div className="bg-[#2563eb] border-2 border-[#1d4ed8] flex items-center justify-center px-4 py-1.5 shadow-[0_2px_10px_rgba(37,99,235,0.25)] -rotate-1 rounded-sm">
-            <span className="font-montserrat font-black text-[34.6px] sm:text-[44px] md:text-[56px] text-white leading-none tracking-tight">
-              <ScrambleText text="Anggota" />
-            </span>
-          </div>
-        </div>
+          <ScriptWord text="Anggota" color={BRAND.blue} className="h-[clamp(64px,9vw,120px)] -mt-[clamp(6px,1vw,14px)]" />
+        </h1>
 
         <p className="font-montserrat font-medium text-xs sm:text-sm text-slate-600 max-w-xl leading-relaxed">
           Struktur kepengurusan KKN-PPM UGM Nawadaya Sumba 2027, mengenal lebih dekat formasi tim mulai dari DPL, Kormanit, 4 Kormater, hingga anggota kluster.
@@ -90,28 +118,31 @@ export default function BaganOrganisasi() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari nama, prodi, fakultas..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-full text-xs bg-white border border-slate-200 text-slate-900 focus:outline-none focus:border-[#2563eb] shadow-2xs"
+              className="w-full pl-9 pr-4 py-2.5 rounded-full text-xs bg-white border border-slate-200 text-slate-900 focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 shadow-2xs"
             />
           </div>
 
           {/* Cluster Filter Buttons */}
           <div className="flex flex-nowrap items-center justify-center gap-1.5 bg-slate-200/50 p-1 rounded-full">
             {[
-              { id: 'all', label: `Semua (${members.length})`, activeBg: 'bg-[#2563eb] text-white' },
-              { id: 'saintek', label: `Saintek (${members.filter((m) => m.cluster === 'saintek').length})`, activeBg: 'bg-[#0891b2] text-white' },
-              { id: 'soshum', label: `Soshum (${members.filter((m) => m.cluster === 'soshum').length})`, activeBg: 'bg-[#a2258d] text-white' },
-              { id: 'medika', label: `Medika (${members.filter((m) => m.cluster === 'medika').length})`, activeBg: 'bg-[#e11d48] text-white' },
-              { id: 'agro', label: `Agro (${members.filter((m) => m.cluster === 'agro').length})`, activeBg: 'bg-[#ea580c] text-white' },
+              { id: 'all', label: `Semua (${members.length})`, bg: BRAND.blue, fg: '#ffffff' },
+              ...CLUSTERS.map((c) => ({
+                id: c.id,
+                label: `${c.name} (${members.filter((m) => m.cluster === c.id).length})`,
+                bg: CLUSTER_THEME[c.name].color,
+                fg: '#0f172a',
+              })),
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveCluster(tab.id)}
                 type="button"
-                className={`whitespace-nowrap shrink-0 px-3.5 py-1.5 rounded-full font-inter text-xs transition-all cursor-pointer ${
+                className={`whitespace-nowrap shrink-0 px-3.5 py-1.5 rounded-full font-inter text-xs transition-colors cursor-pointer ${
                   activeCluster === tab.id
-                    ? `${tab.activeBg} font-semibold shadow-xs`
-                    : 'bg-white/80 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/70 shadow-2xs backdrop-blur-xs'
+                    ? 'font-semibold shadow-xs'
+                    : 'bg-white hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/70 shadow-2xs'
                 }`}
+                style={activeCluster === tab.id ? { backgroundColor: tab.bg, color: tab.fg } : undefined}
               >
                 {tab.label}
               </button>
@@ -125,56 +156,40 @@ export default function BaganOrganisasi() {
         {/* DPL (Dosen Pembimbing Lapangan) */}
         {activeCluster === 'all' && !searchQuery && dpl && (
           <div className="flex flex-col items-center w-full">
-            <div className="bg-[#2563eb] border border-[#1d4ed8] flex items-center justify-center px-4 py-1.5 mb-4 shadow-xs relative z-0">
-              <span className="font-montserrat font-bold text-xs sm:text-sm text-white tracking-wider uppercase">
-                Dosen Pembimbing Lapangan (DPL)
-              </span>
-            </div>
+            <LevelLabel>Dosen Pembimbing Lapangan (DPL)</LevelLabel>
             <div className="relative z-10 w-full flex justify-center">
               <ThreeDMemberCard member={dpl} />
             </div>
-            <div className="w-0.5 h-12 bg-slate-300 my-2" />
+            <div className="w-0.5 h-12 bg-brand-blue/30 my-2" />
           </div>
         )}
 
         {/* KORMANIT (Koordinator Mahasiswa Unit) */}
         {activeCluster === 'all' && !searchQuery && kormanit && (
           <div className="flex flex-col items-center w-full">
-            <div className="bg-[#2563eb] border border-[#1d4ed8] flex items-center justify-center px-4 py-1.5 mb-4 shadow-xs">
-              <span className="font-montserrat font-bold text-xs sm:text-sm text-white tracking-wider uppercase">
-                Koordinator Mahasiswa Unit (Kormanit)
-              </span>
-            </div>
+            <LevelLabel>Koordinator Mahasiswa Unit (Kormanit)</LevelLabel>
             <ThreeDMemberCard member={kormanit} />
-            <div className="w-0.5 h-12 bg-slate-300 my-2" />
+            <div className="w-0.5 h-12 bg-brand-blue/30 my-2" />
           </div>
         )}
 
         {/* 4 KORMATER */}
         {activeCluster === 'all' && !searchQuery && kormaters.length > 0 && (
           <div className="flex flex-col items-center w-full">
-            <div className="bg-[#2563eb] border border-[#1d4ed8] flex items-center justify-center px-4 py-1.5 mb-6 shadow-xs">
-              <span className="font-montserrat font-bold text-xs sm:text-sm text-white tracking-wider uppercase">
-                Koordinator Kluster (Kormater)
-              </span>
-            </div>
+            <LevelLabel className="mb-6">Koordinator Kluster (Kormater)</LevelLabel>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-10 sm:gap-x-12 lg:gap-x-14 gap-y-16 justify-items-center w-full max-w-7xl px-2">
               {kormaters.map((m) => (
                 <ThreeDMemberCard key={m.id} member={m} />
               ))}
             </div>
-            <div className="w-0.5 h-12 bg-slate-300 my-4" />
+            <div className="w-0.5 h-12 bg-brand-blue/30 my-4" />
           </div>
         )}
 
         {/* LEADERSHIP SEARCH RESULTS */}
         {searchQuery.trim() && leadershipMatches.length > 0 && (
           <div className="flex flex-col items-center w-full">
-            <div className="bg-[#3b72db] flex items-center justify-center px-4 py-1.5 mb-8 shadow-xs">
-              <span className="font-montserrat font-bold text-xs sm:text-sm text-white tracking-wider uppercase">
-                DPL & Koordinator
-              </span>
-            </div>
+            <LevelLabel className="mb-8">DPL & Koordinator</LevelLabel>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-10 sm:gap-x-12 lg:gap-x-14 gap-y-16 justify-items-center w-full max-w-7xl px-2">
               {leadershipMatches.map((m) => (
                 <ThreeDMemberCard key={m.id} member={m} />
@@ -190,11 +205,7 @@ export default function BaganOrganisasi() {
 
           return (
             <div key={cluster.id} className="flex flex-col items-center w-full">
-              <div className={`${cluster.bg} flex items-center justify-center px-4 py-1.5 mb-8 shadow-xs`}>
-                <span className="font-montserrat font-bold text-xs sm:text-sm text-white tracking-wider uppercase">
-                  {cluster.title}
-                </span>
-              </div>
+              <ClusterBanner name={cluster.name} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-10 sm:gap-x-12 lg:gap-x-14 gap-y-16 lg:gap-y-20 justify-items-center w-full max-w-7xl px-2">
                 {clusterItems.map((m) => (
@@ -212,6 +223,7 @@ export default function BaganOrganisasi() {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }

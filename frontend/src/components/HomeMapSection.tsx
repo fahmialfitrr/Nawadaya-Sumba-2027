@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Camera, MapPin } from 'lucide-react'
 import SectionHeading from './SectionHeading'
 import { Reveal } from './ScrollPhoto'
+import { Slide } from './Brand'
+import { BRAND } from '../data/theme'
 import { SUMBA_PHOTOS, type SumbaPhoto } from '../data/sumbaPhotos'
 import { PLACES, distanceFromKkn, formatCoords, type Place } from '../data/places'
 import { LOCATOR_PATHS, LOCATOR_VIEW, projectLocator } from '../data/sumbaGeo'
@@ -154,13 +156,22 @@ export default function HomeMapSection() {
   const frameB = projectLocator(BBOX[2], BBOX[1])
 
   return (
-    <section id="map" className="w-full py-24 md:py-32 px-4 sm:px-6 md:px-8 max-w-6xl mx-auto scroll-mt-20">
-      <SectionHeading index="04" eyebrow="Wilayah Pengabdian" lead="Peta" highlight="Pengabdian" className="mb-12">
+    <Slide
+      id="map"
+      frame="teal"
+      photo="/images/sumba/seribu-bukit.jpg"
+      blooms={[
+        { kind: 'garland', color: 'peach', className: 'right-[-3%] top-[-5%] w-[clamp(180px,21vw,350px)] rotate-[190deg]' },
+        { kind: 'flower', color: 'peach', className: 'left-[-2%] bottom-[-4%] w-[clamp(120px,13vw,220px)] -rotate-[20deg]', dir: [1, -1] },
+      ]}
+    >
+      <div className="w-full max-w-6xl mx-auto">
+      <SectionHeading index="04" eyebrow="Wilayah Pengabdian" lead="Peta" highlight="Pengabdian" accent={BRAND.teal} className="mb-12">
         Tim Nawadaya bertugas di Desa Rada Mata dan Kota Tambolaka. Peta 3D ini disusun dari data elevasi dan jalan yang nyata; pilih titik untuk melihat detailnya.
       </SectionHeading>
 
       <Reveal delay={0.1} className="relative w-full">
-        <div className="frame-corners bg-ink-850/85 p-3 sm:p-5 rounded-3xl border border-white/10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        <div className="bg-white p-3 sm:p-5 rounded-3xl border border-slate-200 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.4)] grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           {/* Peta */}
           <div className="lg:col-span-8 lg:self-start rounded-2xl overflow-hidden bg-[#0c1b33] border border-white/10">
             <div className="relative w-full aspect-[4/3.4] sm:aspect-[4/3]">
@@ -237,35 +248,35 @@ export default function HomeMapSection() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <span className={`absolute top-3 left-3 px-2 py-0.5 rounded-md font-mono text-[10.4px] font-bold uppercase tracking-wider ${selected.kind === 'kkn' ? 'bg-senja-amber text-ink-900' : 'bg-[#3057a6] text-white'}`}>
+              <span className={`absolute top-3 left-3 px-2 py-0.5 rounded-md font-mono text-[10.4px] font-bold uppercase tracking-wider ${selected.kind === 'kkn' ? 'bg-brand-yellow text-slate-900' : 'bg-brand-blue text-white'}`}>
                 [{selected.category}]
               </span>
             </div>
             {selected.photo && (
-              <p className="mt-1.5 font-mono text-[10.4px] text-dusk">
+              <p className="mt-1.5 font-mono text-[10.4px] text-slate-400">
                 Foto: {selected.photo.author}, {selected.photo.license}
               </p>
             )}
 
             <div className="pt-5 flex-1">
-              <h3 className="font-montserrat font-bold text-xl text-cream leading-tight">{selected.name}</h3>
-              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-dashed border-white/15 py-3">
+              <h3 className="font-montserrat font-bold text-xl text-slate-900 leading-tight">{selected.name}</h3>
+              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-dashed border-slate-200 py-3">
                 <div>
-                  <dt className="font-mono text-[10.4px] uppercase tracking-wider text-dusk">Kecamatan</dt>
-                  <dd className="font-inter text-xs font-semibold text-cream">{selected.kecamatan ?? '—'}</dd>
+                  <dt className="font-mono text-[10.4px] uppercase tracking-wider text-slate-400">Kecamatan</dt>
+                  <dd className="font-inter text-xs font-semibold text-slate-800">{selected.kecamatan ?? '—'}</dd>
                 </div>
                 <div>
-                  <dt className="font-mono text-[10.4px] uppercase tracking-wider text-dusk">Dari Kantor Desa Rada Mata</dt>
-                  <dd className="font-inter text-xs font-semibold text-cream">
+                  <dt className="font-mono text-[10.4px] uppercase tracking-wider text-slate-400">Dari Kantor Desa Rada Mata</dt>
+                  <dd className="font-inter text-xs font-semibold text-slate-800">
                     {selected.id === 'radamata' ? '—' : `${distanceFromKkn(selected.place)} (garis lurus)`}
                   </dd>
                 </div>
                 <div className="col-span-2">
-                  <dt className="font-mono text-[10.4px] uppercase tracking-wider text-dusk">Koordinat · {selected.anchor}</dt>
-                  <dd className="font-mono text-xs font-medium text-cream tabular-nums">{formatCoords(selected.place)}</dd>
+                  <dt className="font-mono text-[10.4px] uppercase tracking-wider text-slate-400">Koordinat · {selected.anchor}</dt>
+                  <dd className="font-mono text-xs font-medium text-slate-800 tabular-nums">{formatCoords(selected.place)}</dd>
                 </div>
               </dl>
-              <p className="font-inter text-xs sm:text-sm lg:text-xs text-mist leading-relaxed mt-4">{selected.desc}</p>
+              <p className="font-inter text-xs sm:text-sm lg:text-xs text-slate-600 leading-relaxed mt-4">{selected.desc}</p>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2" role="group" aria-label="Pilih titik">
@@ -276,20 +287,21 @@ export default function HomeMapSection() {
                   onClick={() => setSelectedId(pt.id)}
                   aria-pressed={pt.id === selectedId}
                   className={`text-left px-3 py-2 rounded-xl border font-inter text-[10.4px] font-semibold transition-colors cursor-pointer ${
-                    pt.id === selectedId ? 'bg-cream border-cream text-ink-900' : 'bg-ink-900/60 border-white/10 text-mist hover:border-white/30 hover:text-cream'
+                    pt.id === selectedId ? 'bg-brand-blue border-brand-blue text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
                   }`}
                 >
                   {pt.name}
-                  <span className={`block font-mono font-medium ${pt.id === selectedId ? 'text-ink-900/60' : pt.kind === 'kkn' ? 'text-senja-gold/80' : 'text-dusk'}`}>{pt.category}</span>
+                  <span className={`block font-mono font-medium ${pt.id === selectedId ? 'text-white/70' : pt.kind === 'kkn' ? 'text-[#c4532b]' : 'text-slate-400'}`}>{pt.category}</span>
                 </button>
               ))}
             </div>
-            <p className="mt-3 font-mono text-[10.4px] text-dusk leading-relaxed">
+            <p className="mt-3 font-mono text-[10.4px] text-slate-400 leading-relaxed">
               Luas & penduduk: data Kemendagri (via Wikipedia). Titik di peta memakai lokasi kantor/bangunan di OpenStreetMap.
             </p>
           </div>
         </div>
       </Reveal>
-    </section>
+      </div>
+    </Slide>
   )
 }

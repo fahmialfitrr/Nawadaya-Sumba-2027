@@ -7,7 +7,7 @@ export const Route = createFileRoute('/anggota')({
 
 function AnggotaPage() {
   return (
-    <div className="pt-24 pb-16 w-full">
+    <div className="w-full">
       <BaganOrganisasi />
     </div>
   )
