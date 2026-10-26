@@ -11,7 +11,7 @@ export interface HeroScene {
   name: string
   region: string
   place?: Place
-  image: { lg: string; sm: string }
+  image: { lg: string; sm: string; lgWidth: number }
   depth: string
   aspect: number
   /** Kedalaman (0 = jauh, 1 = dekat) yang diam saat kamera bergerak */
@@ -24,15 +24,29 @@ export interface HeroScene {
   wind: number
   /** Bayangan awan yang melintas di daratan */
   shadow: number
-  credit: { author: string; license: string; source: string }
+  /** Kosong untuk aset milik tim sendiri */
+  credit?: { author: string; license: string; source: string }
 }
 
-const hero = (id: string) => ({
-  image: { lg: `/images/sumba/hero/${id}-2560.webp`, sm: `/images/sumba/hero/${id}-1280.webp` },
+const hero = (id: string, lgWidth = 2560) => ({
+  image: { lg: `/images/sumba/hero/${id}-${lgWidth}.webp`, sm: `/images/sumba/hero/${id}-1280.webp`, lgWidth },
   depth: `/images/sumba/hero/${id}-depth.png`,
 })
 
 export const HERO_SCENES: HeroScene[] = [
+  {
+    // Aset tim (sampul utama); lokasi persis foto tidak disebutkan
+    id: 'sabana-senja',
+    name: 'Senja di Sabana Sumba',
+    region: 'Perbukitan sabana',
+    ...hero('sabana-senja', 1920),
+    aspect: 1280 / 707,
+    focus: 0.3,
+    focal: [0.5, 0.55],
+    peek: [0.3, 0.6],
+    wind: 0.8,
+    shadow: 0.12,
+  },
   {
     id: 'pantai-sbd',
     name: 'Pesisir Sumba Barat Daya',

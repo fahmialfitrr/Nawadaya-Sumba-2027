@@ -1,30 +1,48 @@
-// Jumlah genap agar pola isi/garis tepi tetap bersambung saat berulang
-const NAMES = ['Sumba Barat Daya', 'Tambolaka', 'Rada Mata', 'Weetebula', 'Waikelo', 'Kodi', 'Weekuri', 'Ratenggaro', 'Mandorak', 'Nusa Tenggara Timur']
+import { KKN_LOCATION, formatCoords } from '../data/places'
 
-/** Motif belah ketupat sederhana, terinspirasi pola tenun ikat */
-function IkatDiamond() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-4 h-4 md:w-6 md:h-6 shrink-0" aria-hidden="true">
-      <path d="M12 1 23 12 12 23 1 12Z" fill="#fdde09" />
-      <path d="M12 7.5 16.5 12 12 16.5 7.5 12Z" fill="#0f172a" />
-    </svg>
-  )
-}
+// Hanya wilayah kerja tim (Desa Rada Mata, Kecamatan Kota Tambolaka) dan wilayah
+// administratif di atasnya. Jumlah genap agar pola isi/garis tepi tetap bersambung.
+const NAMES = ['Desa Rada Mata', 'Kota Tambolaka', 'Sumba Barat Daya', 'KKN-PPM UGM 2026']
+
+const TICKER = [
+  KKN_LOCATION.desa,
+  KKN_LOCATION.kecamatan,
+  KKN_LOCATION.kabupaten,
+  KKN_LOCATION.provinsi,
+  formatCoords(KKN_LOCATION),
+  'KKN-PPM UGM Periode 2',
+]
 
 export default function HomePlaceMarquee() {
-  const row = [...NAMES, ...NAMES]
+  const row = [...NAMES, ...NAMES, ...NAMES, ...NAMES]
+  // Animasi menggeser 50%: kedua paruh deret harus identik
+  const ticker = [...TICKER, ...TICKER, ...TICKER, ...TICKER]
   return (
-    <div className="relative w-full bg-white border-b border-slate-200 py-5 md:py-7 overflow-hidden">
-      <p className="sr-only">Wilayah pengabdian dan sekitarnya: {NAMES.join(', ')}.</p>
-      <div className="flex w-max items-center animate-marquee-left" style={{ animationDuration: '70s' }} aria-hidden="true">
+    <div className="relative w-full border-b border-white/10 py-5 md:py-7 overflow-hidden">
+      <p className="sr-only">
+        Wilayah pengabdian: {KKN_LOCATION.desa}, {KKN_LOCATION.kecamatan}, {KKN_LOCATION.kabupaten}, {KKN_LOCATION.provinsi}.
+      </p>
+      <div className="flex w-max items-center animate-marquee-left" style={{ animationDuration: '60s' }} aria-hidden="true">
         {row.map((name, i) => (
           <span key={i} className="flex items-center gap-6 md:gap-10 pr-6 md:pr-10">
             <span
-              className={`font-montserrat font-bold text-2xl md:text-3xl leading-none tracking-tight whitespace-nowrap ${i % 2 ? 'text-outline' : 'text-slate-900'}`}
+              className={`font-montserrat font-extrabold text-2xl md:text-3xl leading-none tracking-tight whitespace-nowrap ${i % 2 ? 'text-outline' : 'text-cream'}`}
             >
               {name}
             </span>
-            <IkatDiamond />
+            <span className="font-mono font-bold text-sm md:text-lg text-senja-gold whitespace-nowrap">·:*:·</span>
+          </span>
+        ))}
+      </div>
+      <div
+        className="mt-4 md:mt-5 flex w-max items-center animate-marquee-right font-mono text-[10.4px] md:text-xs uppercase tracking-[0.18em] text-dusk"
+        style={{ animationDuration: '80s' }}
+        aria-hidden="true"
+      >
+        {ticker.map((t, i) => (
+          <span key={i} className="flex items-center gap-4 pr-4 whitespace-nowrap">
+            <span>{t}</span>
+            <span className="text-senja-gold/60">//</span>
           </span>
         ))}
       </div>

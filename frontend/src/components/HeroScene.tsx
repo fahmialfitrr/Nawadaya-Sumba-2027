@@ -6,11 +6,9 @@ import { HERO_OVERSCAN as OVERSCAN, type HeroScene as HeroSceneData } from '../d
  * Hero 3D: foto lanskap dibentuk jadi permukaan 3D dari depth map-nya,
  * lalu kamera bergerak pelan (mouse / idle / scroll) sehingga muncul parallax nyata.
  *
- * Lanskap berikutnya hidup di ruang 3D tersendiri, jauh di belakang lanskap sekarang.
- * Kursor membolongi lanskap sekarang menjadi piksel-piksel sehingga dunia di belakangnya
- * terlihat, lengkap dengan parallax-nya sendiri. Saat diklik, lanskap sekarang terurai
- * piksel demi piksel (gradient wipe) sambil melewati kamera, dan dunia di belakangnya
- * maju menggantikannya.
+ * Saat berganti, lanskap berikutnya hidup di ruang 3D tersendiri di belakang lanskap sekarang.
+ * Gelombang ASCII menyapu dari titik klik (gradient wipe): foto menjadi huruf, huruf menipis
+ * lalu hilang sambil melewati kamera, dan dunia di belakangnya maju menggantikannya.
  */
 
 const FOV = 32
@@ -18,11 +16,12 @@ const CAM_DIST = 6
 const DEPTH_SCALE = 2
 const SWAY = { x: 0.75, y: 0.38 }
 const INTRO_MS = 2200
-const TRANSITION_MS = 2600
-/** Ukuran piksel lubang di layar (px CSS) */
-const PIXEL_PX = { desktop: 22, small: 16 }
-/** Jangkauan lubang di sekitar kursor, relatif terhadap tinggi permukaan foto */
-const HOVER_REACH = { follow: 0.22, rest: 0.12 }
+const TRANSITION_MS = 2900
+/** Tinggi sel karakter ASCII di layar (px CSS); lebarnya mengikuti proporsi huruf monospace */
+const CELL_PX = { desktop: 15, small: 12 }
+const CELL_ASPECT = 0.62
+/** Butiran film di atas foto */
+const GRAIN = 0.075
 /** Jarak dunia lanskap berikutnya di belakang lanskap sekarang (satuan dunia 3D) */
 const BACK_DIST = 2.6
 /** Ukuran tampak dunia belakang saat menunggu (sedikit lebih kecil = terasa jauh) */
@@ -32,24 +31,13 @@ const BACK_FOG = 0.2
 /** Seberapa jauh lanskap sekarang bergerak melewati kamera saat terurai */
 const FRONT_FLY = 2.4
 
-export interface LensState {
-  /** Posisi kursor/titik pancingan dalam px CSS, relatif terhadap kontainer */
-  x: number
-  y: number
-  /** follow = ikut kursor, rest = berdenyut di titik pancingan, off = disembunyikan */
-  mode: 'follow' | 'rest' | 'off'
-}
-
 interface HeroSceneProps {
   scenes: HeroSceneData[]
   active: number
   /** Seberapa jauh hero sudah tertutup konten di bawahnya, 0..1 */
   scrollRef: { current: number }
-  lensRef: { current: LensState }
-  /** Titik awal wipe berikutnya (px CSS); null = mulai dari posisi kursor/pancingan */
+  /** Titik awal wipe berikutnya (px CSS, relatif terhadap kontainer); null = dari tengah */
   originRef: { current: { x: number; y: number } | null }
-  /** Elemen overlay yang menerima posisi kursor lewat CSS variable --lx, --ly, --lf, --lo */
-  overlayRef: { current: HTMLElement | null }
   onReady: () => void
   onError: () => void
   className?: string
@@ -99,6 +87,11 @@ const common = /* glsl */ `
     return v;
   }
 
+  // Butiran film yang berganti tiap frame
+  float grain(vec2 fc) {
+    return (hash(fc * 0.71 + fract(uTime * 3.7) * 311.0) - 0.5) * ${GRAIN.toFixed(3)};
+  }
+
   vec3 shade(sampler2D tex, sampler2D dep, vec2 uv, float wind, float shadow) {
     float depth = texture2D(dep, uv).r;
     // Angin: hanya objek terdekat (daun, semak) yang bergoyang
@@ -118,7 +111,7 @@ const common = /* glsl */ `
   }
 `
 
-// Lanskap sekarang: tersusun dari blok per piksel agar tiap piksel bisa dilubangi utuh
+// Lanskap sekarang: tersusun dari blok per sel karakter agar tiap sel bisa berubah jadi huruf utuh
 const frontVertex = /* glsl */ `
   ${common}
   attribute vec2 aCell;
@@ -133,18 +126,33 @@ const frontVertex = /* glsl */ `
   uniform float uPlaneAspect;
   uniform vec2 uOriginUv;
   uniform float uMix;
-  uniform float uHover;
-  uniform float uReach;
+  uniform float uScroll;
+  uniform float uEdgeV;
   varying vec2 vUv;
   varying vec2 vCellUv;
-  varying vec2 vState;
+  varying vec2 vCell;
+  varying float vState;
 
-  const float BAND = 0.12;
+  // Lebar pita gelombang: makin lebar, makin panjang fase foto -> huruf -> hilang
+  const float BAND = 0.3;
+  // Tinggi pita ASCII di atas tepi tirai (fraksi tinggi permukaan foto)
+  const float CURTAIN_BAND = 0.42;
 
-  // x = progres terurai saat wipe (1 = bolong), y = progres bolong di sekitar kursor (>= 0.5 = bolong)
-  vec2 cellState(vec2 cell) {
-    if (uMix <= 0.0 && uHover <= 0.001) return vec2(0.0);
+  // Saat tirai konten naik: sel di atas tepinya berubah jadi huruf, makin dekat makin tipis,
+  // dan seluruh foto perlahan ikut berlapis huruf
+  float curtainState(vec2 cell, vec2 cellUv) {
+    if (uScroll <= 0.0) return 0.0;
+    float rag = (noise(cellUv * vec2(uPlaneAspect, 1.0) * 7.0 + 3.0) - 0.5) * 0.12 + (hash(cell * 0.913 + 5.0) - 0.5) * 0.06;
+    float near = clamp((uEdgeV + CURTAIN_BAND - cellUv.y + rag) / CURTAIN_BAND, 0.0, 1.0);
+    float soft = smoothstep(0.0, 0.85, uScroll) * 0.26;
+    return max(near * smoothstep(0.0, 0.05, uScroll), soft);
+  }
+
+  // 0 = foto utuh, 1 = sel hilang
+  float cellState(vec2 cell) {
     vec2 cellUv = (cell + 0.5) / uGrid;
+    float curtain = curtainState(cell, cellUv);
+    if (uMix <= 0.0) return curtain;
     float rnd = hash(cell * 0.731 + 17.0);
     vec2 asp = vec2(uPlaneAspect, 1.0);
     float dist = distance(cellUv * asp, uOriginUv * asp);
@@ -154,24 +162,21 @@ const frontVertex = /* glsl */ `
     float n = clamp((fbm(cellUv * asp * 2.6 + 11.0) - 0.3) / 0.4, 0.0, 1.0);
     float d1 = texture2D(uDepth1, coverUv(cellUv, uScale1, uOff1)).r;
     float g = 0.42 * n + 0.18 * rnd + 0.22 * (1.0 - d1);
-    float gWipe = g * 0.82 + 0.18 * clamp(dist / 1.1, 0.0, 1.0);
-    float fWipe = clamp((uMix * (1.0 + BAND) - gWipe) / BAND, 0.0, 1.0);
-
-    // Lubang di sekitar kursor, dengan batas yang tidak beraturan
-    float ragged = (fbm(cellUv * asp * 5.0 + vec2(uTime * 0.05, 0.0)) - 0.5) * uReach;
-    float local = uHover * (1.0 - smoothstep(uReach * 0.1, uReach, dist + ragged));
-    float tPeek = local * (0.66 + 0.05 * sin(uTime * 3.2 + rnd * 40.0));
-    float fHover = clamp((tPeek - g) / BAND + 0.5, 0.0, 1.0) * step(0.001, local);
-    return vec2(fWipe, fHover);
+    // Gelombang memancar dari titik klik, tepinya dibentuk peta gradien
+    float gWipe = g * 0.6 + 0.4 * clamp(dist / 1.1, 0.0, 1.0);
+    return max(curtain, clamp((uMix * (1.0 + BAND) - gWipe) / BAND, 0.0, 1.0));
   }
 
   void main() {
     vUv = uv;
     vCellUv = (aCell + 0.5) / uGrid;
+    vCell = aCell;
     vState = cellState(aCell);
     float d0 = shapeDepth(texture2D(uDepth0, coverUv(uv, uScale0, uOff0)).r, uFocus0);
     vec3 p = position;
     p.z += d0 * uDepthScale * uFlat;
+    // Sel yang sudah jadi huruf sedikit terangkat ke arah kamera: lapisan teks punya parallax sendiri
+    p.z += smoothstep(0.0, 0.6, vState) * (0.05 + 0.12 * hash(aCell * 0.731 + 17.0));
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   }
 `
@@ -184,18 +189,50 @@ const frontFragment = /* glsl */ `
   uniform vec2 uOff0;
   uniform float uWind0;
   uniform float uShadow0;
+  uniform sampler2D uGlyphs;
+  uniform float uGlyphCount;
+  uniform vec2 uGrid;
   varying vec2 vUv;
   varying vec2 vCellUv;
-  varying vec2 vState;
+  varying vec2 vCell;
+  varying float vState;
 
   void main() {
-    // Piksel yang sudah bolong memperlihatkan dunia di belakangnya
-    if (vState.x >= 0.999 || vState.y >= 0.5) discard;
-    // Sesaat sebelum bolong, piksel berubah jadi mosaik
-    bool mosaic = vState.x > 0.001 || vState.y > 0.2;
-    vec3 c = shade(uTex0, uDepth0, coverUv(mosaic ? vCellUv : vUv, uScale0, uOff0), uWind0, uShadow0);
-    if (mosaic) c = c * 1.06 + vec3(1.0, 0.88, 0.7) * 0.05;
-    gl_FragColor = vec4(c, 1.0);
+    float s = vState;
+    if (s >= 0.999) discard;
+    vec3 photo = shade(uTex0, uDepth0, coverUv(vUv, uScale0, uOff0), uWind0, uShadow0);
+    float gr = grain(gl_FragCoord.xy);
+    if (s <= 0.0) {
+      gl_FragColor = vec4(photo + gr, 1.0);
+      return;
+    }
+
+    // Warna rata-rata sel (dari mipmap) menjadi warna hurufnya
+    vec3 cellCol = texture2D(uTex0, coverUv(vCellUv, uScale0, uOff0), 3.0).rgb;
+    float lum = dot(cellCol, vec3(0.299, 0.587, 0.114));
+
+    // Kerapatan huruf: ikut terang sel, menipis saat sel mendekati hilang, berkedip mengacak
+    float thin = smoothstep(0.3, 1.0, s);
+    float flick = hash(vCell * 1.37 + floor(uTime * 15.0) * 0.61);
+    float dens = clamp(0.3 + lum * 0.85, 0.0, 1.0) * (1.0 - thin * 0.9);
+    dens = clamp(dens + (flick - 0.5) * 0.32 * (1.0 - thin * 0.5), 0.0, 0.999);
+    float idx = floor(dens * uGlyphCount);
+    vec2 local = clamp(vUv * uGrid - vCell, 0.02, 0.98);
+    float ink = smoothstep(0.3, 0.62, texture2D(uGlyphs, vec2((idx + local.x) / uGlyphCount, local.y)).a);
+
+    // Ujung gelombang menyala hangat, lalu huruf mengambil warna fotonya
+    float hot = 1.0 - smoothstep(0.04, 0.42, s);
+    vec3 glyph = mix(cellCol * 1.4 + 0.07, vec3(1.0, 0.93, 0.78), hot * 0.65);
+
+    if (s < 0.3) {
+      // Fase 1: huruf muncul di atas foto yang meredup
+      vec3 bg = photo * (1.0 - smoothstep(0.0, 0.3, s) * 0.5);
+      gl_FragColor = vec4(mix(bg, glyph, ink * smoothstep(0.0, 0.1, s)) + gr, 1.0);
+      return;
+    }
+    // Fase 2: latar sel hilang, dunia belakang terlihat di sela huruf
+    if (ink < 0.5) discard;
+    gl_FragColor = vec4(glyph + gr, 1.0);
   }
 `
 
@@ -231,7 +268,7 @@ const backFragment = /* glsl */ `
   void main() {
     vec3 c = shade(uTex1, uDepth1, coverUv(vUv, uScale1, uOff1), uWind1, uShadow1);
     c = mix(c, vec3(0.06, 0.09, 0.15), uFog);
-    gl_FragColor = vec4(c, 1.0);
+    gl_FragColor = vec4(c + grain(gl_FragCoord.xy), 1.0);
   }
 `
 
@@ -267,15 +304,58 @@ const particleFragment = /* glsl */ `
   }
 `
 
+/**
+ * Atlas karakter untuk shader: glyph diurutkan dari yang paling tipis ke paling padat
+ * (diukur dari tintanya), lalu dipilih merata sebanyak GLYPH_COUNT.
+ */
+const GLYPH_SET = '.,:;-~=+*!?/\\|()[]{}<>xo0#%&@$'
+const GLYPH_COUNT = 16
+
+function buildGlyphAtlas() {
+  const CW = 48
+  const CH = 80
+  const font = `700 ${Math.round(CH * 0.86)}px Consolas, "Courier New", ui-monospace, monospace`
+  const probe = document.createElement('canvas')
+  probe.width = CW
+  probe.height = CH
+  const pctx = probe.getContext('2d', { willReadFrequently: true })!
+  const draw = (ctx: CanvasRenderingContext2D, ch: string, x: number) => {
+    ctx.font = font
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#fff'
+    ctx.fillText(ch, x + CW / 2, CH * 0.53)
+  }
+  const scored = [...GLYPH_SET].map((ch) => {
+    pctx.clearRect(0, 0, CW, CH)
+    draw(pctx, ch, 0)
+    const d = pctx.getImageData(0, 0, CW, CH).data
+    let ink = 0
+    for (let i = 3; i < d.length; i += 4) ink += d[i]
+    return { ch, ink }
+  })
+  scored.sort((a, b) => a.ink - b.ink)
+  const canvas = document.createElement('canvas')
+  canvas.width = CW * GLYPH_COUNT
+  canvas.height = CH
+  const ctx = canvas.getContext('2d')!
+  for (let i = 0; i < GLYPH_COUNT; i++) {
+    draw(ctx, scored[Math.round((i * (scored.length - 1)) / (GLYPH_COUNT - 1))].ch, i * CW)
+  }
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+  return tex
+}
+
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
 export default function HeroScene({
   scenes,
   active,
   scrollRef,
-  lensRef,
   originRef,
-  overlayRef,
   onReady,
   onError,
   className = '',
@@ -306,7 +386,7 @@ export default function HeroScene({
 
     const isTouch = window.matchMedia('(pointer: coarse)').matches
     const isSmall = Math.min(window.innerWidth, window.innerHeight) < 700
-    const dpr = Math.min(window.devicePixelRatio || 1, isSmall ? 1.5 : 1.75)
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
     renderer.setPixelRatio(dpr)
     renderer.setClearColor(0x0b1220, 1)
 
@@ -338,9 +418,11 @@ export default function HeroScene({
       uGrid: { value: new THREE.Vector2(60, 34) },
       uPlaneAspect: { value: 16 / 9 },
       uOriginUv: { value: new THREE.Vector2(0.5, 0.5) },
-      uHover: { value: 0 },
-      uReach: { value: HOVER_REACH.follow },
+      uScroll: { value: 0 },
+      uEdgeV: { value: -1 },
       uFog: { value: BACK_FOG },
+      uGlyphs: { value: buildGlyphAtlas() },
+      uGlyphCount: { value: GLYPH_COUNT },
     }
 
     // Dunia belakang (lanskap berikutnya)
@@ -348,6 +430,7 @@ export default function HeroScene({
     const backMaterial = new THREE.ShaderMaterial({ uniforms, vertexShader: backVertex, fragmentShader: backFragment })
     const back = new THREE.Mesh(backGeometry, backMaterial)
     back.frustumCulled = false
+    back.visible = false
     scene.add(back)
 
     // Dunia depan (lanskap sekarang): satu blok kecil per piksel agar bisa dilubangi
@@ -446,6 +529,7 @@ export default function HeroScene({
 
     // Ukuran & cover-fit
     let viewW = 1
+    const edgeRay = new THREE.Vector3()
     let viewH = 1
     let planeAspect = 1
     let cssW = 1
@@ -481,10 +565,10 @@ export default function HeroScene({
       uniforms.uPlaneAspect.value = planeAspect
       particles.scale.set(viewW * 0.55, viewH * 0.55, 1)
       pUniforms.uScale.value = h * dpr * 0.011
-      // Grid piksel: ukuran piksel di layar kira-kira tetap di semua resolusi
-      const px = w < 700 ? PIXEL_PX.small : PIXEL_PX.desktop
-      const cols = Math.min(120, Math.max(20, Math.round((w / px) * OVERSCAN)))
-      const rows = Math.max(8, Math.round(cols / planeAspect))
+      // Grid sel karakter: ukurannya di layar kira-kira tetap di semua resolusi
+      const cellH = w < 700 ? CELL_PX.small : CELL_PX.desktop
+      const cols = Math.min(210, Math.max(30, Math.round((w / (cellH * CELL_ASPECT)) * OVERSCAN)))
+      const rows = Math.max(12, Math.round((h / cellH) * OVERSCAN))
       if (cols !== grid.cols || rows !== grid.rows) {
         grid = { cols, rows }
         uniforms.uGrid.value.set(cols, rows)
@@ -505,16 +589,6 @@ export default function HeroScene({
       const p = toPlaneUv(x, y)
       uniforms.uOriginUv.value.set(p.u, p.v)
     }
-    // Titik di foto lanskap berikutnya ([x, y] dari kiri atas) -> px CSS, seperti terlihat di dunia belakang
-    const peekToScreen = (s: HeroSceneData) => {
-      const sc = uniforms.uScale1.value
-      const of = uniforms.uOff1.value
-      const pu = (s.peek[0] - 0.5 - of.x) / sc.x + 0.5
-      const pv = (1 - s.peek[1] - 0.5 - of.y) / sc.y + 0.5
-      const k = OVERSCAN * BACK_APPARENT
-      return { x: cssW * (0.5 + (pu - 0.5) * k), y: cssH * (0.5 - (pv - 0.5) * k) }
-    }
-
     // Pemuatan tekstur
     const loader = new THREE.TextureLoader()
     const maxAniso = renderer.capabilities.getMaxAnisotropy()
@@ -594,15 +668,14 @@ export default function HeroScene({
       applyCover()
     }
 
-    // Kursor (atau titik pancingan) & transisi
-    const hover = { x: -1, y: -1, amount: 0, follow: 0 }
-    let transition: { start: number; x: number; y: number; h0: number; resolve: () => void } | null = null
+    // Transisi: gelombang dari titik klik, atau dari tengah saat berganti otomatis
+    let transition: { start: number; x: number; y: number; resolve: () => void } | null = null
 
     const runTransition = () =>
       new Promise<void>((resolve) => {
-        const o = originRef.current ?? { x: hover.x, y: hover.y }
+        const o = originRef.current ?? { x: cssW * 0.5, y: cssH * 0.5 }
         originRef.current = null
-        transition = { start: performance.now(), x: o.x, y: o.y, h0: hover.amount, resolve }
+        transition = { start: performance.now(), x: o.x, y: o.y, resolve }
         start()
       })
 
@@ -639,7 +712,6 @@ export default function HeroScene({
               setSlot(0, target, res)
               current = target
               uniforms.uMix.value = 0
-              hover.amount = 0
             }
             continue
           }
@@ -702,32 +774,7 @@ export default function HeroScene({
       uniforms.uFlat.value = intro
       pUniforms.uOpacity.value = intro * 0.75
 
-      const ready = preview >= 0 && preview !== current && !transition
-      const nextScene = ready ? slotScene[1] : null
-
-      // Lubang ikut kursor; saat kursor tidak di foto, berdenyut di objek khas lanskap berikutnya
-      const L = lensRef.current
-      const following = L.mode === 'follow'
-      let tx = L.x
-      let ty = L.y
-      if (!following && nextScene && cssW >= 1024) {
-        const p = peekToScreen(nextScene)
-        tx = Math.min(cssW * 0.86, Math.max(cssW * 0.66, p.x))
-        ty = Math.min(cssH * 0.62, Math.max(cssH * 0.3, p.y))
-      }
-      if (hover.x < 0) {
-        hover.x = tx
-        hover.y = ty
-      }
-      const posEase = 1 - Math.exp(-dt * (following ? 9 : 3))
-      hover.x += (tx - hover.x) * posEase
-      hover.y += (ty - hover.y) * posEase
-      hover.follow += ((following ? 1 : 0) - hover.follow) * (1 - Math.exp(-dt * 6))
-      const want = !ready || L.mode === 'off' ? 0 : following ? 1 : 0.74 + 0.26 * Math.sin(t * 1.6)
-      hover.amount += (want * intro - hover.amount) * (1 - Math.exp(-dt * 4))
-      uniforms.uReach.value = HOVER_REACH.rest + (HOVER_REACH.follow - HOVER_REACH.rest) * hover.follow
-
-      // Transisi: dunia depan terurai piksel demi piksel sambil melewati kamera,
+      // Transisi: dunia depan terurai jadi huruf lalu hilang sambil melewati kamera,
       // dunia belakang maju dari kedalamannya dan kabutnya menghilang
       let frontZ = 0
       let arrive = 0
@@ -735,20 +782,18 @@ export default function HeroScene({
         const k = Math.min(1, (now - transition.start) / TRANSITION_MS)
         setOrigin(transition.x, transition.y)
         uniforms.uMix.value = k * 0.75 + (0.5 - 0.5 * Math.cos(Math.PI * k)) * 0.25
-        uniforms.uHover.value = transition.h0 * Math.max(0, 1 - k * 1.5)
         frontZ = FRONT_FLY * k * k
         arrive = easeInOut(k)
         if (k >= 1) {
           const done = transition.resolve
           transition = null
           frontZ = 0
-          arrive = 0
           done()
         }
-      } else {
-        setOrigin(hover.x, hover.y)
-        uniforms.uHover.value = hover.amount
       }
+      // Dunia belakang hanya perlu dirender selama transisi; frame terakhir (sebelum
+      // lanskap ditukar) masih memakainya di posisi akhir agar tidak ada kedipan
+      back.visible = uniforms.uMix.value > 0
       front.position.z = frontZ
       const backZ = -BACK_DIST * (1 - arrive)
       const apparent = BACK_APPARENT + (1 - BACK_APPARENT) * arrive
@@ -756,14 +801,6 @@ export default function HeroScene({
       back.position.z = backZ
       back.scale.set(viewW * OVERSCAN * fill, viewH * OVERSCAN * fill, 1)
       uniforms.uFog.value = BACK_FOG * (1 - arrive)
-
-      const overlay = overlayRef.current
-      if (overlay) {
-        overlay.style.setProperty('--lx', `${hover.x.toFixed(1)}px`)
-        overlay.style.setProperty('--ly', `${hover.y.toFixed(1)}px`)
-        overlay.style.setProperty('--lf', hover.follow.toFixed(3))
-        overlay.style.setProperty('--lo', (ready && L.mode !== 'off' ? intro : 0).toFixed(3))
-      }
 
       // Kamera: mouse di desktop, melayang pelan saat diam / di perangkat sentuh
       const idle = isTouch || now - pointer.last > 3500
@@ -779,6 +816,16 @@ export default function HeroScene({
         CAM_DIST - easeInOut(scroll) * 1.9,
       )
       camera.lookAt(0, scroll * 0.3, 0)
+
+      // Tepi atas tirai konten (naik dari bawah layar) -> koordinat v di permukaan foto depan,
+      // agar huruf ASCII selalu mendahului tepi tirai
+      uniforms.uScroll.value = scroll
+      if (scroll > 0) {
+        camera.updateMatrixWorld()
+        edgeRay.set(0, scroll * 2 - 1, 0.5).unproject(camera).sub(camera.position).normalize()
+        const hit = (front.position.z - camera.position.z) / edgeRay.z
+        uniforms.uEdgeV.value = 0.5 + (camera.position.y + edgeRay.y * hit) / (viewH * OVERSCAN)
+      }
 
       uniforms.uTime.value = t
       pUniforms.uTime.value = t
@@ -839,6 +886,7 @@ export default function HeroScene({
       backMaterial.dispose()
       pGeo.dispose()
       pMat.dispose()
+      uniforms.uGlyphs.value.dispose()
       renderer.dispose()
       renderer.forceContextLoss()
       canvas.remove()

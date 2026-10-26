@@ -1,5 +1,6 @@
-import React, { useRef, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
+import AsciiVeil from './AsciiVeil'
 
 interface ScrollPhotoProps {
   src: string
@@ -7,8 +8,10 @@ interface ScrollPhotoProps {
   className?: string
   /** Pergeseran parallax dalam persen tinggi foto (0 = tanpa parallax) */
   strength?: number
-  /** Animasi buka (clip-path) saat foto pertama masuk layar */
+  /** Foto terbentuk dari tirai ASCII saat pertama masuk layar */
   reveal?: boolean
+  /** Warna tirai ASCII, samakan dengan latar di sekitar foto */
+  veil?: string
   delay?: number
   eager?: boolean
   children?: ReactNode
@@ -20,6 +23,7 @@ export function ScrollPhoto({
   className = '',
   strength = 8,
   reveal = true,
+  veil,
   delay = 0,
   eager = false,
   children,
@@ -31,14 +35,7 @@ export function ScrollPhoto({
   const animate = !reduce
 
   return (
-    <motion.div
-      ref={ref}
-      className={`relative overflow-hidden bg-slate-800 ${className}`}
-      initial={animate && reveal ? { clipPath: 'inset(14% 10% 14% 10%)', opacity: 0.4 } : false}
-      whileInView={{ clipPath: 'inset(0% 0% 0% 0%)', opacity: 1 }}
-      viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-      transition={{ duration: 1.1, delay, ease: [0.22, 1, 0.36, 1] }}
-    >
+    <div ref={ref} className={`relative overflow-hidden bg-ink-800 ${className}`}>
       <motion.img
         src={src}
         alt={alt}
@@ -48,7 +45,8 @@ export function ScrollPhoto({
         className="absolute inset-0 w-full h-full object-cover"
       />
       {children}
-    </motion.div>
+      {reveal && <AsciiVeil color={veil} delay={delay} />}
+    </div>
   )
 }
 

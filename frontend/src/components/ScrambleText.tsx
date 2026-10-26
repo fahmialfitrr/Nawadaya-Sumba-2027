@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react'
-
-const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+'
+import { useEffect, useState, useRef } from 'react'
+import { ASCII_GLYPHS as CHARS } from '../data/theme'
 
 export function ScrambleText({
   text,

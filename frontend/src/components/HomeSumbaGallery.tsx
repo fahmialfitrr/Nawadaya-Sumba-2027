@@ -11,7 +11,9 @@ import {
 } from 'framer-motion'
 import { MoveRight } from 'lucide-react'
 import SectionHeading from './SectionHeading'
+import AsciiVeil from './AsciiVeil'
 import { SUMBA_PHOTOS, type SumbaPhoto } from '../data/sumbaPhotos'
+import { SENJA } from '../data/theme'
 import { PLACES, distanceFromKkn, type Place } from '../data/places'
 
 interface GalleryItem {
@@ -82,11 +84,11 @@ const ITEMS: GalleryItem[] = [
   },
 ]
 
-/** Nama tempat untuk lapisan latar yang bergerak lebih lambat dari kartu */
-const BACKDROP_NAMES = ['Humba', 'Tambolaka', 'Rada Mata', 'Weetebula', 'Kodi', 'Ratenggaro', 'Weekuri', 'Mandorak', 'Marapu']
+/** Lapisan latar yang bergerak lebih lambat dari kartu: hanya wilayah kerja tim + nama lokal Sumba */
+const BACKDROP_NAMES = ['Rada Mata', 'Humba', 'Kota Tambolaka', 'Marapu']
 
-/** Warna latar section; dipakai juga oleh tirai piksel agar menyatu */
-const BG = '#020617'
+/** Warna latar section; dipakai juga oleh tirai ASCII agar menyatu */
+const BG = SENJA.ink
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -114,93 +116,11 @@ function useIsDesktop() {
   return isDesktop
 }
 
-/**
- * Tirai piksel di atas foto: piksel-piksel berwarna latar yang hilang mengikuti
- * gradien kiri-ke-kanan + acak, sama seperti gradient wipe berpiksel di sampul.
- * progress 0 = foto tertutup penuh, 1 = foto terbuka penuh.
- */
-function PixelVeil({ progress, seed }: { progress: MotionValue<number>; seed: number }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const parent = canvas?.parentElement
-    if (!canvas || !parent) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    let cols = 0
-    let rows = 0
-    let cw = 0
-    let ch = 0
-    let thresholds = new Float32Array(0)
-    let last = -1
-
-    const rand = (i: number) => {
-      const s = Math.sin(i * 127.1 + seed * 311.7) * 43758.5453
-      return s - Math.floor(s)
-    }
-
-    const draw = (p: number) => {
-      last = p
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      if (p >= 1) return
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const t = thresholds[y * cols + x]
-          if (p >= t) continue
-          // Piksel yang hampir terbuka tampil tipis, memberi kesan mosaik
-          const edge = t - p < 0.07
-          ctx.fillStyle = edge ? 'rgba(2, 6, 23, 0.5)' : BG
-          ctx.fillRect(Math.floor(x * cw), Math.floor(y * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1)
-          if (edge && rand(y * cols + x + 7) > 0.7) {
-            ctx.fillStyle = 'rgba(253, 222, 9, 0.16)'
-            ctx.fillRect(Math.floor(x * cw), Math.floor(y * ch), Math.ceil(cw), Math.ceil(ch))
-          }
-        }
-      }
-    }
-
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const w = parent.clientWidth
-      const h = parent.clientHeight
-      canvas.width = Math.round(w * dpr)
-      canvas.height = Math.round(h * dpr)
-      const cell = 36
-      cols = Math.max(6, Math.round(w / cell))
-      rows = Math.max(4, Math.round(h / cell))
-      cw = canvas.width / cols
-      ch = canvas.height / rows
-      thresholds = new Float32Array(cols * rows)
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          thresholds[y * cols + x] = 0.55 * (x / Math.max(1, cols - 1)) + 0.45 * rand(y * cols + x)
-        }
-      }
-      draw(progress.get())
-    }
-
-    resize()
-    const ro = new ResizeObserver(resize)
-    ro.observe(parent)
-    const unsub = progress.on('change', (p) => {
-      if (Math.abs(p - last) > 0.002 || (p >= 1 && last < 1)) draw(p)
-    })
-    return () => {
-      ro.disconnect()
-      unsub()
-    }
-  }, [progress, seed])
-
-  return <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none" />
-}
-
 function SectionIntro({ className = '' }: { className?: string }) {
   return (
     <div className={className}>
-      <SectionHeading index="02" eyebrow="Humba Hammu" lead="Mengenal" highlight="Tanah Sumba" color="#16b8c5" border="#0e9aa5" dark>
-        Dari Rada Mata dan Kota Tambolaka hingga pesisir Kodi: budaya Marapu, tenun ikat, dan lanskap yang menjadi rumah bagi warga Sumba Barat Daya.
+      <SectionHeading index="02" eyebrow="Humba Hammu" lead="Mengenal" highlight="Tanah Sumba">
+        Tim bertugas di Rada Mata dan Kota Tambolaka. Galeri ini mengenalkan budaya Marapu, tenun ikat, dan lanskap Sumba Barat Daya di sekitarnya.
       </SectionHeading>
     </div>
   )
@@ -230,7 +150,7 @@ function GalleryCard({
       style={motionStyle ? { rotateY: motionStyle.rotateY, scale: motionStyle.scale, transformPerspective: 1500 } : undefined}
       className={`shrink-0 flex flex-col gap-4 ${item.wide ? 'w-[82vw] sm:w-[60vw] lg:w-[44vw]' : 'w-[68vw] sm:w-[42vw] lg:w-[25vw]'}`}
     >
-      <div className="relative h-[52vh] lg:h-[58vh] min-h-[320px] rounded-3xl overflow-hidden bg-slate-800">
+      <div className="relative h-[52vh] lg:h-[58vh] min-h-[320px] rounded-3xl overflow-hidden bg-ink-800">
         <motion.img
           src={item.photo.src}
           alt={item.photo.alt}
@@ -239,22 +159,22 @@ function GalleryCard({
           style={motionStyle ? { x: motionStyle.photoX, scale: 1.3 } : undefined}
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
-        <span className="absolute top-4 left-4 font-montserrat font-bold text-xs text-white/90 bg-slate-950/40 backdrop-blur-sm px-3 py-1 rounded-full">
-          {pad(index + 1)}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-950/65 via-transparent to-transparent" />
+        <span className="absolute top-4 left-4 font-mono font-bold text-xs text-cream bg-ink-900/70 border border-white/15 px-2.5 py-1 rounded-full">
+          [{pad(index + 1)}]
         </span>
-        <span className="absolute bottom-3 right-4 font-inter text-[10.4px] text-white/70">
-          {item.photo.author} • {item.photo.license}
+        <span className="absolute bottom-3 right-4 font-mono text-[10.4px] text-cream/70">
+          {item.photo.author} · {item.photo.license}
         </span>
-        {reveal && <PixelVeil progress={reveal} seed={index + 1} />}
+        {reveal && <AsciiVeil progress={reveal} seed={index + 1} color={BG} cell={16} />}
       </div>
       <motion.figcaption style={motionStyle ? { x: motionStyle.captionX } : undefined} className="pr-6">
-        <span className="font-inter text-[10.4px] font-semibold uppercase tracking-wider text-[#fdde09]">
+        <span className="font-mono text-[10.4px] font-medium uppercase tracking-wider text-senja-gold">
           {item.region}
-          {item.place && <span className="text-slate-400 normal-case tracking-normal font-medium"> · {distanceFromKkn(item.place)} dari Rada Mata</span>}
+          {item.place && <span className="text-dusk normal-case tracking-normal"> · {distanceFromKkn(item.place)} dari Rada Mata</span>}
         </span>
-        <h3 className="font-montserrat font-bold text-lg text-white mt-1 mb-1.5">{item.title}</h3>
-        <p className="font-inter text-xs text-slate-400 leading-relaxed max-w-md">{item.desc}</p>
+        <h3 className="font-montserrat font-bold text-lg text-cream mt-1 mb-1.5">{item.title}</h3>
+        <p className="font-inter text-xs text-mist leading-relaxed max-w-md">{item.desc}</p>
       </motion.figcaption>
     </motion.figure>
   )
@@ -357,13 +277,10 @@ function HorizontalGallery() {
         >
           {backdropRow.map((name, i) => (
             <span key={i} className="flex items-center gap-10">
-              <span className="font-montserrat font-black text-[146px] leading-none tracking-tight whitespace-nowrap text-transparent [-webkit-text-stroke:1.5px_rgba(255,255,255,0.11)]">
+              <span className="font-montserrat font-black text-[146px] leading-none tracking-tight whitespace-nowrap text-transparent [-webkit-text-stroke:1.5px_rgba(246,239,228,0.1)]">
                 {name}
               </span>
-              <svg viewBox="0 0 24 24" className="w-10 h-10 shrink-0" aria-hidden="true">
-                <path d="M12 1 23 12 12 23 1 12Z" fill="rgba(253,222,9,0.16)" />
-                <path d="M12 7.5 16.5 12 12 16.5 7.5 12Z" fill={BG} />
-              </svg>
+              <span className="font-mono font-bold text-5xl text-senja-gold/20 whitespace-nowrap">·:*:·</span>
             </span>
           ))}
         </motion.div>
@@ -386,17 +303,17 @@ function HorizontalGallery() {
 
         {/* Penanda posisi */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[min(72rem,calc(100vw-4rem))] flex items-center gap-5">
-          <span className="font-inter text-[10.4px] font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap flex items-center gap-2">
+          <span className="font-mono text-[10.4px] uppercase tracking-wider text-dusk whitespace-nowrap flex items-center gap-2">
             Gulir untuk menjelajah <MoveRight className="w-3.5 h-3.5" />
           </span>
-          <div className="h-[2px] flex-1 bg-white/15 rounded-full overflow-hidden">
-            <motion.div style={{ width: progress }} className="h-full bg-[#fdde09]" />
+          <div className="h-[2px] flex-1 bg-white/10 rounded-full overflow-hidden">
+            <motion.div style={{ width: progress }} className="h-full bg-senja-gold" />
           </div>
-          <span className="font-inter text-xs tabular-nums text-white/80 whitespace-nowrap">
-            <span className="text-[#fdde09] font-semibold">{pad(current + 1)}</span>
-            <span className="text-white/40"> / {pad(ITEMS.length)}</span>
+          <span className="font-mono text-xs tabular-nums text-cream/80 whitespace-nowrap">
+            <span className="text-senja-gold font-bold">{pad(current + 1)}</span>
+            <span className="text-dusk"> / {pad(ITEMS.length)}</span>
           </span>
-          <span className="hidden xl:block w-40 truncate font-inter text-[10.4px] text-white/50">{ITEMS[current].title}</span>
+          <span className="hidden xl:block w-40 truncate font-mono text-[10.4px] text-dusk">{ITEMS[current].title}</span>
         </div>
       </div>
     </section>
@@ -444,7 +361,7 @@ function SwipeGallery({ animated }: { animated: boolean }) {
           ),
         )}
       </div>
-      <p className="px-4 sm:px-6 md:px-8 mt-4 font-inter text-[10.4px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+      <p className="px-4 sm:px-6 md:px-8 mt-4 font-mono text-[10.4px] uppercase tracking-wider text-dusk flex items-center gap-2">
         Geser untuk melihat lainnya <MoveRight className="w-3.5 h-3.5" />
       </p>
     </section>

@@ -26,11 +26,15 @@ export default function Navbar() {
 
         {/* Brand / Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0 no-underline group">
-          <div className="w-8 h-8 rounded-full bg-[#3057a6] flex items-center justify-center text-white font-montserrat font-black text-xs group-hover:scale-105 transition-transform">
-            N
-          </div>
+          <img
+            src="/images/brand/logo-kkn.png"
+            alt="Logo KKN-PPM UGM"
+            width={176}
+            height={176}
+            className="w-9 h-9 shrink-0 group-hover:scale-105 transition-transform"
+          />
           <div className="flex flex-col gap-0.5">
-            <span className="font-montserrat font-bold text-sm text-slate-900 leading-none">
+            <span className="font-montserrat font-bold text-s m text-slate-900 leading-none">
               Nawadaya<span className="text-[#3057a6]">.</span>
             </span>
             <span className="font-inter text-[10.4px] font-semibold text-slate-500 uppercase tracking-wider leading-none">
@@ -90,7 +94,7 @@ export default function Navbar() {
         <div className="pointer-events-auto lg:hidden absolute top-[76px] left-4 right-4 max-w-5xl mx-auto bg-white/95 backdrop-blur-xl rounded-3xl p-4 border border-slate-200 shadow-2xl flex flex-col gap-1">
           <span className="text-[10.4px] font-bold text-slate-400 uppercase tracking-widest px-4 pt-2 pb-1">
             Navigasi
-          </span>
+          </span> ``
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.href)
             return (
