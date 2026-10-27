@@ -16,6 +16,14 @@ const CAM_DIST = 6
 const DEPTH_SCALE = 2
 const SWAY = { x: 0.75, y: 0.38 }
 const INTRO_MS = 2200
+/**
+ * Pemindaian 3D saat sampul pertama dibuka: lanskap tersusun dari yang terdekat (sabana)
+ * sampai yang terjauh (langit). Di garis depan pindaian muncul karakter ASCII yang menyala
+ * dan gumpalan "gaussian splat" yang mengendap menjadi foto, foto lalu menajam.
+ */
+const SCAN_MS = 3400
+/** Jumlah splat (kolom x baris) di layar lebar; di layar kecil dikurangi */
+const SPLAT_GRID = { desktop: [150, 84], small: [96, 64] }
 const TRANSITION_MS = 2900
 /** Tinggi sel karakter ASCII di layar (px CSS); lebarnya mengikuti proporsi huruf monospace */
 const CELL_PX = { desktop: 15, small: 12 }
@@ -39,6 +47,8 @@ interface HeroSceneProps {
   /** Titik awal wipe berikutnya (px CSS, relatif terhadap kontainer); null = dari tengah */
   originRef: { current: { x: number; y: number } | null }
   onReady: () => void
+  /** Pemindaian 3D awal selesai; aset lain boleh mulai muncul */
+  onIntroDone: () => void
   onError: () => void
   className?: string
 }
@@ -128,10 +138,12 @@ const frontVertex = /* glsl */ `
   uniform float uMix;
   uniform float uScroll;
   uniform float uEdgeV;
+  uniform float uScan;
   varying vec2 vUv;
   varying vec2 vCellUv;
   varying vec2 vCell;
   varying float vState;
+  varying float vScan;
 
   // Lebar pita gelombang: makin lebar, makin panjang fase foto -> huruf -> hilang
   const float BAND = 0.3;
@@ -146,6 +158,17 @@ const frontVertex = /* glsl */ `
     float near = clamp((uEdgeV + CURTAIN_BAND - cellUv.y + rag) / CURTAIN_BAND, 0.0, 1.0);
     float soft = smoothstep(0.0, 0.85, uScroll) * 0.26;
     return max(near * smoothstep(0.0, 0.05, uScroll), soft);
+  }
+
+  // Progres pindai 3D per sel (0 = belum, 1 = selesai): sabana (dekat) duluan, langit terakhir
+  const float SCAN_BAND = 0.4;
+  float scanProgress(vec2 cell, vec2 cellUv) {
+    if (uScan >= 1.0) return 1.0;
+    float d = texture2D(uDepth0, coverUv(cellUv, uScale0, uOff0)).r;
+    float n = noise(cellUv * vec2(uPlaneAspect, 1.0) * 4.0 + 7.0);
+    float raw = 0.5 * (1.0 - d) + 0.5 * cellUv.y + (n - 0.5) * 0.12 + hash(cell * 1.31 + 3.0) * 0.04;
+    float th = clamp((raw - 0.15) / 0.82, 0.0, 1.0);
+    return clamp((uScan * (1.0 + SCAN_BAND) - th) / SCAN_BAND, 0.0, 1.0);
   }
 
   // 0 = foto utuh, 1 = sel hilang
@@ -171,12 +194,17 @@ const frontVertex = /* glsl */ `
     vUv = uv;
     vCellUv = (aCell + 0.5) / uGrid;
     vCell = aCell;
-    vState = cellState(aCell);
+    // Pindaian: sel muncul sebagai huruf (bagian awal pita), lalu menjadi foto
+    vScan = scanProgress(aCell, vCellUv);
+    vState = max(cellState(aCell), clamp(1.0 - vScan / 0.6, 0.0, 1.0));
     float d0 = shapeDepth(texture2D(uDepth0, coverUv(uv, uScale0, uOff0)).r, uFocus0);
     vec3 p = position;
     p.z += d0 * uDepthScale * uFlat;
     // Sel yang sudah jadi huruf sedikit terangkat ke arah kamera: lapisan teks punya parallax sendiri
-    p.z += smoothstep(0.0, 0.6, vState) * (0.05 + 0.12 * hash(aCell * 0.731 + 17.0));
+    float rz = hash(aCell * 0.731 + 17.0);
+    p.z += smoothstep(0.0, 0.6, vState) * (0.05 + 0.12 * rz);
+    // Saat dipindai, sel melayang dari depan lalu mengendap ke permukaannya
+    p.z += (1.0 - smoothstep(0.0, 0.75, vScan)) * (0.18 + 0.45 * rz);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   }
 `
@@ -196,11 +224,21 @@ const frontFragment = /* glsl */ `
   varying vec2 vCellUv;
   varying vec2 vCell;
   varying float vState;
+  varying float vScan;
+
+  const vec3 SCAN_COL = vec3(0.78, 0.97, 1.0);
 
   void main() {
     float s = vState;
     if (s >= 0.999) discard;
     vec3 photo = shade(uTex0, uDepth0, coverUv(vUv, uScale0, uOff0), uWind0, uShadow0);
+    if (vScan < 0.999) {
+      // Baru dipindai: foto masih buram & bernuansa data pindaian, lalu menajam
+      float settle = smoothstep(0.6, 1.0, vScan);
+      float blur = (1.0 - settle) * 4.5;
+      if (blur > 0.05) photo = texture2D(uTex0, coverUv(vUv, uScale0, uOff0), blur).rgb;
+      photo = mix(photo * 0.7 + SCAN_COL * 0.12, photo, settle);
+    }
     float gr = grain(gl_FragCoord.xy);
     if (s <= 0.0) {
       gl_FragColor = vec4(photo + gr, 1.0);
@@ -223,6 +261,9 @@ const frontFragment = /* glsl */ `
     // Ujung gelombang menyala hangat, lalu huruf mengambil warna fotonya
     float hot = 1.0 - smoothstep(0.04, 0.42, s);
     vec3 glyph = mix(cellCol * 1.4 + 0.07, vec3(1.0, 0.93, 0.78), hot * 0.65);
+    // Garis depan pindaian menyala putih kebiruan
+    float scanEdge = vScan < 0.999 ? 1.0 - smoothstep(0.0, 0.32, vScan) : 0.0;
+    glyph = mix(glyph, SCAN_COL, scanEdge * 0.8);
 
     if (s < 0.3) {
       // Fase 1: huruf muncul di atas foto yang meredup
@@ -269,6 +310,60 @@ const backFragment = /* glsl */ `
     vec3 c = shade(uTex1, uDepth1, coverUv(vUv, uScale1, uOff1), uWind1, uShadow1);
     c = mix(c, vec3(0.06, 0.09, 0.15), uFog);
     gl_FragColor = vec4(c + grain(gl_FragCoord.xy), 1.0);
+  }
+`
+
+// Gumpalan "gaussian splat": elips lembut berwarna foto di garis depan pindaian
+const splatVertex = /* glsl */ `
+  ${common}
+  attribute vec2 aJit;
+  uniform sampler2D uTex0;
+  uniform sampler2D uDepth0;
+  uniform vec2 uScale0;
+  uniform vec2 uOff0;
+  uniform float uFocus0;
+  uniform float uScan;
+  uniform float uPlaneAspect;
+  uniform float uPxScale;
+  varying vec3 vColor;
+  varying float vAlpha;
+  varying vec2 vShape;
+
+  const float SCAN_BAND = 0.4;
+
+  void main() {
+    vec2 cuv = coverUv(uv, uScale0, uOff0);
+    float d = texture2D(uDepth0, cuv).r;
+    float n = noise(uv * vec2(uPlaneAspect, 1.0) * 4.0 + 7.0);
+    float raw = 0.5 * (1.0 - d) + 0.5 * uv.y + (n - 0.5) * 0.12 + aJit.x * 0.04;
+    float th = clamp((raw - 0.15) / 0.82, 0.0, 1.0);
+    float p = clamp((uScan * (1.0 + SCAN_BAND) - th) / SCAN_BAND, 0.0, 1.0);
+    vAlpha = smoothstep(0.02, 0.22, p) * (1.0 - smoothstep(0.5, 0.92, p));
+    vec3 pos = position;
+    pos.z += shapeDepth(d, uFocus0) * uDepthScale * uFlat;
+    pos.z += (1.0 - smoothstep(0.0, 0.8, p)) * (0.3 + aJit.y * 0.6);
+    vColor = textureLod(uTex0, cuv, 2.0).rgb;
+    vShape = vec2(aJit.x * 6.2832, 1.4 + aJit.y * 1.6);
+    vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = vAlpha <= 0.0 ? 0.0 : min(uPxScale * (0.75 + aJit.y * 0.9) * (1.0 + (1.0 - p) * 0.9) / -mv.z, 72.0);
+  }
+`
+
+const splatFragment = /* glsl */ `
+  varying vec3 vColor;
+  varying float vAlpha;
+  varying vec2 vShape;
+
+  void main() {
+    vec2 q = gl_PointCoord - 0.5;
+    float c = cos(vShape.x);
+    float s = sin(vShape.x);
+    q = vec2(c * q.x - s * q.y, s * q.x + c * q.y);
+    q.x *= vShape.y;
+    float a = exp(-dot(q, q) * 19.0) * vAlpha;
+    if (a < 0.01) discard;
+    gl_FragColor = vec4(vColor * 1.06 + 0.03, a * 0.85);
   }
 `
 
@@ -357,13 +452,14 @@ export default function HeroScene({
   scrollRef,
   originRef,
   onReady,
+  onIntroDone,
   onError,
   className = '',
 }: HeroSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<{ setActive: (i: number) => void } | null>(null)
-  const callbacks = useRef({ onReady, onError })
-  callbacks.current = { onReady, onError }
+  const callbacks = useRef({ onReady, onIntroDone, onError })
+  callbacks.current = { onReady, onIntroDone, onError }
 
   useEffect(() => {
     const container = containerRef.current
@@ -419,6 +515,8 @@ export default function HeroScene({
       uPlaneAspect: { value: 16 / 9 },
       uOriginUv: { value: new THREE.Vector2(0.5, 0.5) },
       uScroll: { value: 0 },
+      uScan: { value: 0 },
+      uPxScale: { value: 10 },
       uEdgeV: { value: -1 },
       uFog: { value: BACK_FOG },
       uGlyphs: { value: buildGlyphAtlas() },
@@ -439,6 +537,45 @@ export default function HeroScene({
     const front = new THREE.Mesh(frontGeometry, frontMaterial)
     front.frustumCulled = false
     scene.add(front)
+
+    const [sCols, sRows] = isSmall ? SPLAT_GRID.small : SPLAT_GRID.desktop
+    const splatGeo = new THREE.BufferGeometry()
+    {
+      const n = sCols * sRows
+      const sp = new Float32Array(n * 3)
+      const su = new Float32Array(n * 2)
+      const sj = new Float32Array(n * 2)
+      let k = 0
+      for (let y = 0; y < sRows; y++) {
+        for (let x = 0; x < sCols; x++) {
+          const u = (x + Math.random()) / sCols
+          const v = (y + Math.random()) / sRows
+          sp[k * 3] = u - 0.5
+          sp[k * 3 + 1] = v - 0.5
+          su[k * 2] = u
+          su[k * 2 + 1] = v
+          sj[k * 2] = Math.random()
+          sj[k * 2 + 1] = Math.random()
+          k++
+        }
+      }
+      splatGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3))
+      splatGeo.setAttribute('uv', new THREE.BufferAttribute(su, 2))
+      splatGeo.setAttribute('aJit', new THREE.BufferAttribute(sj, 2))
+    }
+    const splatMat = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: splatVertex,
+      fragmentShader: splatFragment,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+    })
+    const splats = new THREE.Points(splatGeo, splatMat)
+    splats.frustumCulled = false
+    splats.renderOrder = 2
+    splats.visible = false
+    front.add(splats)
 
     const buildFront = (cols: number, rows: number) => {
       // Kerapatan titik per blok dijaga sekitar 60 ribu titik total
@@ -565,6 +702,7 @@ export default function HeroScene({
       uniforms.uPlaneAspect.value = planeAspect
       particles.scale.set(viewW * 0.55, viewH * 0.55, 1)
       pUniforms.uScale.value = h * dpr * 0.011
+      uniforms.uPxScale.value = (3.2 * ((viewW * OVERSCAN) / sCols) * h * dpr) / (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)))
       // Grid sel karakter: ukurannya di layar kira-kira tetap di semua resolusi
       const cellH = w < 700 ? CELL_PX.small : CELL_PX.desktop
       const cols = Math.min(210, Math.max(30, Math.round((w / (cellH * CELL_ASPECT)) * OVERSCAN)))
@@ -684,6 +822,7 @@ export default function HeroScene({
     let pending: number | null = null
     let busy = false
     let introStart = -1
+    let introDone = false
 
     const runQueue = async () => {
       if (busy) return
@@ -769,10 +908,23 @@ export default function HeroScene({
       lastFrame = now
       const t = (now - t0) / 1000
 
-      const intro = introStart < 0 ? 0 : easeInOut(Math.min(1, (now - introStart) / INTRO_MS))
+      // Pindai 3D dulu; angin, bayangan awan, serbuk sari & goyang kamera menyusul
+      const scanT = introStart < 0 ? 0 : Math.min(1, (now - introStart) / SCAN_MS)
+      // Cepat di awal (sabana langsung terlihat), melambat saat menyapu langit
+      const scan = scanT <= 0 ? 0 : 0.06 + 0.94 * (1 - Math.pow(1 - scanT, 1.6))
+      uniforms.uScan.value = scan
+      splats.visible = scan > 0 && scan < 1
+      // Aset lain mulai muncul saat langit tinggal menajam, tidak menunggu ekor pindaian
+      if (scanT >= 0.78 && !introDone) {
+        introDone = true
+        callbacks.current.onIntroDone()
+      }
+      const intro = introStart < 0 ? 0 : easeInOut(Math.min(1, Math.max(0, (now - introStart - SCAN_MS * 0.7) / INTRO_MS)))
       uniforms.uLife.value = intro
-      uniforms.uFlat.value = intro
+      uniforms.uFlat.value = introStart < 0 ? 0 : 1
       pUniforms.uOpacity.value = intro * 0.75
+      // Kamera menengadah pelan mengikuti pindaian dari sabana ke langit
+      const tilt = introStart < 0 ? 1 : 1 - easeInOut(scanT)
 
       // Transisi: dunia depan terurai jadi huruf lalu hilang sambil melewati kamera,
       // dunia belakang maju dari kedalamannya dan kabutnya menghilang
@@ -812,10 +964,10 @@ export default function HeroScene({
 
       camera.position.set(
         pointer.x * SWAY.x * intro,
-        pointer.y * SWAY.y * intro + scroll * 0.45,
+        pointer.y * SWAY.y * intro + scroll * 0.45 - tilt * 0.06,
         CAM_DIST - easeInOut(scroll) * 1.9,
       )
-      camera.lookAt(0, scroll * 0.3, 0)
+      camera.lookAt(0, scroll * 0.3 - tilt * 0.28, 0)
 
       // Tepi atas tirai konten (naik dari bawah layar) -> koordinat v di permukaan foto depan,
       // agar huruf ASCII selalu mendahului tepi tirai
@@ -886,6 +1038,8 @@ export default function HeroScene({
       backMaterial.dispose()
       pGeo.dispose()
       pMat.dispose()
+      splatGeo.dispose()
+      splatMat.dispose()
       uniforms.uGlyphs.value.dispose()
       renderer.dispose()
       renderer.forceContextLoss()

@@ -13,14 +13,16 @@ import { ArrowDown, ArrowRight, ArrowUpRight, MousePointerClick, Pointer } from 
 import { Link } from '@tanstack/react-router'
 import AsciiReveal from './AsciiReveal'
 import { ScrambleText } from './ScrambleText'
-import { HERO_OVERSCAN, HERO_SCENES, type HeroScene } from '../data/heroScenes'
+import { HERO_SCENES, type HeroScene } from '../data/heroScenes'
 import { KKN_LOCATION, distanceFromKkn } from '../data/places'
 
-const HeroSceneCanvas = lazy(() => import('./HeroScene'))
+const loadHeroScene = () => import('./HeroScene')
+const HeroSceneCanvas = lazy(loadHeroScene)
 
 const WIPE_LOCK_MS = 2000
 /** Judul tetap dimunculkan bila WebGL belum siap dalam waktu ini */
-const REVEAL_FALLBACK_MS = 1800
+/** Cadangan bila pemindaian 3D tidak pernah selesai (mis. WebGL macet) */
+const REVEAL_FALLBACK_MS = 9000
 /**
  * Petunjuk "klik untuk ganti lanskap" di dekat kursor: muncul 3 dtk setelah kuda & bunga
  * selesai terurai dari ASCII, tampil 4 dtk, lalu berulang tiap 20 dtk. Siklusnya mulai
@@ -68,13 +70,24 @@ export default function HomeHero() {
   const scrollRef = useRef(0)
 
   useEffect(() => {
-    setMode(!reduce && supportsWebGL() ? '3d' : 'static')
+    const use3d = !reduce && supportsWebGL()
+    if (use3d) {
+      void loadHeroScene()
+      const s0 = HERO_SCENES[0]
+      const large = window.innerWidth * (window.devicePixelRatio || 1) > 1280
+      for (const url of [large ? s0.image.lg : s0.image.sm, s0.depth]) {
+        const img = new Image()
+        img.decoding = 'async'
+        img.src = url
+      }
+    }
+    setMode(use3d ? '3d' : 'static')
     setIsTouch(window.matchMedia('(pointer: coarse)').matches)
   }, [reduce])
 
   // Judul & ornamen ASCII terurai setelah lanskap tampil
   useEffect(() => {
-    if (mode === 'static' || ready3d) setRevealed(true)
+    if (mode === 'static') setRevealed(true)
   }, [mode, ready3d])
   useEffect(() => {
     const t = setTimeout(() => setRevealed(true), REVEAL_FALLBACK_MS)
@@ -210,6 +223,7 @@ export default function HomeHero() {
 
   // Klik di area foto (bukan tombol/teks) berganti lanskap
   const onClick = (e: ReactMouseEvent<HTMLElement>) => {
+    if (!revealed) return
     if ((e.target as Element).closest(UI_SELECTOR)) return
     if (window.getSelection()?.toString()) return
     const p = localPoint(e)
@@ -217,6 +231,7 @@ export default function HomeHero() {
   }
 
   const onNextButton = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    if (!revealed) return
     const r = e.currentTarget.getBoundingClientRect()
     const p = localPoint({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })
     goNext(p.x, p.y)
@@ -233,23 +248,6 @@ export default function HomeHero() {
     >
       {/* Lapisan visual */}
       <div className="absolute inset-0">
-        {mode !== 'static' && (
-          <img
-            src={HERO_SCENES[0].image.sm}
-            srcSet={srcSet(HERO_SCENES[0])}
-            sizes="100vw"
-            alt=""
-            aria-hidden="true"
-            fetchPriority="high"
-            decoding="async"
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-            style={{
-              opacity: ready3d ? 0 : 1,
-              transform: `scale(${HERO_OVERSCAN})`,
-              objectPosition: `${(HERO_SCENES[0].focal?.[0] ?? 0.5) * 100}% ${(HERO_SCENES[0].focal?.[1] ?? 0.5) * 100}%`,
-            }}
-          />
-        )}
 
         {mode === 'static' && (
           <>
@@ -286,15 +284,37 @@ export default function HomeHero() {
               scrollRef={scrollRef}
               originRef={originRef}
               onReady={() => setReady3d(true)}
+              onIntroDone={() => setRevealed(true)}
               onError={() => {
                 setReady3d(false)
                 setMode('static')
               }}
-              className={`absolute inset-0 transition-opacity duration-500 ${ready3d ? 'opacity-100' : 'opacity-0'}`}
+              className={`absolute inset-0 transition-opacity duration-300 ${ready3d ? 'opacity-100' : 'opacity-0'}`}
             />
           </Suspense>
         )}
       </div>
+
+      {/* Layar pemindai: tampil sejak frame pertama agar tidak pernah kosong, hilang saat lanskap 3D mulai tersusun */}
+      {mode !== 'static' && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 z-[9] pointer-events-none flex items-center justify-center transition-opacity duration-500"
+          style={{ opacity: ready3d ? 0 : 1 }}
+        >
+          <div className="hero-boot-field absolute inset-0" />
+          <div className="hero-boot-line absolute inset-x-0 h-px" />
+          <div className="relative flex flex-col items-center gap-4">
+            <img src="/images/brand/logo-kkn.png" alt="" width={176} height={176} className="w-11 h-11 opacity-90" />
+            <span className="font-mono text-[10.4px] sm:text-xs uppercase tracking-[0.26em] text-white/75">
+              Memindai lanskap Sumba<span className="typewriter-cursor">_</span>
+            </span>
+            <span className="relative block w-44 h-px bg-white/15 overflow-hidden">
+              <span className="hero-boot-bar absolute inset-y-0 left-0 w-1/3 bg-brand-teal" />
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Gradasi agar judul & teks terbaca */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_60%_58%_at_50%_54%,rgba(11,18,32,0.5),rgba(11,18,32,0)_72%)]" />
@@ -368,11 +388,12 @@ export default function HomeHero() {
       </motion.div>
 
       {/* Bingkai ornamen */}
-      <motion.div
-        aria-hidden="true"
-        style={reduce ? undefined : { scale: frameScale, opacity: frameOpacity }}
-        className="hero-frame absolute inset-1.5 sm:inset-2.5 z-[7] pointer-events-none"
-      />
+      <div aria-hidden="true" className="absolute inset-0 z-[7] pointer-events-none transition-opacity duration-1000" style={{ opacity: revealed ? 1 : 0 }}>
+        <motion.div
+          style={reduce ? undefined : { scale: frameScale, opacity: frameOpacity }}
+          className="hero-frame absolute inset-1.5 sm:inset-2.5"
+        />
+      </div>
 
       <motion.div style={{ opacity: darken }} className="absolute inset-0 z-[8] pointer-events-none bg-ink-900" />
 
@@ -404,7 +425,7 @@ export default function HomeHero() {
         <motion.div
           data-hero-ui
           initial={reduce ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={{ opacity: revealed ? 1 : 0, y: revealed ? 0 : 12 }}
           transition={{ duration: 0.8, delay: 0.15, ease }}
           className="pointer-events-auto relative z-[2] shrink-0 inline-flex items-center gap-3 rounded-full bg-[#0b1220]/30 border border-white/70 pl-4 pr-3.5 py-1.5"
         >
