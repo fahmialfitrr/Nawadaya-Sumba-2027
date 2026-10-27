@@ -35,7 +35,7 @@ function CardFace({ member, photo, cvLink }: FaceProps) {
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           aria-label={`Buka CV ${member.name}`}
-          className="absolute top-2.5 right-2.5 z-40 inline-flex items-center gap-1 bg-[#ffab2f] hover:bg-[#e69b2a] border border-[#ffab2f] text-slate-900 font-inter font-medium text-xs px-3 py-1 rounded-full shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition-colors duration-200 no-underline cursor-pointer"
+          className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-40 inline-flex items-center gap-1 bg-[#ffab2f] hover:bg-[#e69b2a] border border-[#ffab2f] text-slate-900 font-inter font-medium text-[10.4px] sm:text-xs px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition-colors duration-200 no-underline cursor-pointer"
           title={`Buka CV ${member.name}`}
         >
           <span>CV</span>
@@ -98,7 +98,7 @@ export default function ThreeDMemberCard({ member }: ThreeDMemberCardProps) {
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative group w-full max-w-[265px] h-[375px] flex flex-col justify-between select-none hover:z-30 [perspective:1000px] ${
+      className={`relative group w-full max-w-[265px] aspect-[265/375] flex flex-col justify-between select-none hover:z-30 [perspective:1000px] ${
         isHovered ? 'animate-card-jiggle' : ''
       }`}
     >

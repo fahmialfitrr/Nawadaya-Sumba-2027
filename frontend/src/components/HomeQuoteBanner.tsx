@@ -34,6 +34,7 @@ export default function HomeQuoteBanner() {
             duration={2000}
             dir={[1, -1.2]}
             play={inView}
+            idle="shimmer"
             className="shrink-0 h-[96%] opacity-20"
           />
         </div>

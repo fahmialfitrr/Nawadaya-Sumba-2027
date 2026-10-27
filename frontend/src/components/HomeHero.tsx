@@ -31,7 +31,7 @@ const HINT = { firstDelay: 3000, show: 4000, every: 20000 }
 const ART = {
   wordmark: { src: '/images/hero/wordmark.webp', w: 1170, h: 641 },
   horse: { src: '/images/hero/horse.webp', w: 928, h: 1002 },
-  flower: { src: '/images/hero/flower.png', w: 250, h: 320 },
+  flower: { src: '/images/art/flower.webp', w: 720, h: 922 },
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -312,7 +312,9 @@ export default function HomeHero() {
             src={ART.flower.src}
             width={ART.flower.w}
             height={ART.flower.h}
-            mode="ascii"
+            mode="image"
+            idle="fall"
+            idlePaused={!atTop}
             cell={11}
             delay={500}
             duration={1600}
@@ -330,7 +332,9 @@ export default function HomeHero() {
             src={ART.flower.src}
             width={ART.flower.w}
             height={ART.flower.h}
-            mode="ascii"
+            mode="image"
+            idle="fall"
+            idlePaused={!atTop}
             cell={11}
             delay={750}
             duration={1600}
@@ -348,7 +352,9 @@ export default function HomeHero() {
             src={ART.flower.src}
             width={ART.flower.w}
             height={ART.flower.h}
-            mode="ascii"
+            mode="image"
+            idle="fall"
+            idlePaused={!atTop}
             cell={9}
             delay={1000}
             duration={1200}
@@ -433,6 +439,8 @@ export default function HomeHero() {
                 play={revealed}
                 glitchKey={active}
                 onDone={() => setAssetsDone(true)}
+                idle="shimmer"
+                idlePaused={!atTop}
                 className="w-full h-full opacity-[0.82]"
               />
             </motion.div>

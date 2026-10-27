@@ -14,15 +14,19 @@ export function BrandFrame({ color, className = '', width }: { color: BrandColor
   return <div aria-hidden="true" className={`brand-frame pointer-events-none ${className}`} style={style} />
 }
 
+// Artwork asli brand kit (putih + tekstur alfa halftone), diwarnai palet saat tampil
 const BLOOMS = {
-  rose: { src: '/images/brand/bloom-rose.png', w: 277, h: 300 },
-  garland: { src: '/images/brand/bloom-garland.png', w: 420, h: 276 },
-  flower: { src: '/images/hero/flower.png', w: 250, h: 320 },
+  rose: { src: '/images/art/rose.webp', w: 560, h: 607 },
+  garland: { src: '/images/art/garland.webp', w: 760, h: 500 },
+  flower: { src: '/images/art/flower.webp', w: 720, h: 922 },
 } as const
 
 export type BloomKind = keyof typeof BLOOMS
 
-/** Bunga dari karakter ASCII dengan warna palet; terurai saat masuk layar */
+/**
+ * Bunga brand kit dengan warna palet: terurai dari ASCII saat masuk layar menjadi
+ * artwork aslinya, lalu karakter-karakter kecil berguguran pelan darinya.
+ */
 export function AsciiBloom({
   kind,
   color,
@@ -49,13 +53,14 @@ export function AsciiBloom({
         src={b.src}
         width={b.w}
         height={b.h}
-        mode="ascii"
+        mode="image"
+        tint={COLOR_HEX[color]}
+        idle="fall"
         cell={cell}
         delay={delay}
-        duration={1400}
+        duration={1500}
         dir={dir}
         play={inView}
-        color={COLOR_HEX[color]}
         className="w-full"
       />
     </div>
@@ -200,6 +205,7 @@ export function Slide({
   tone = 'light',
   photo,
   blooms = [],
+  compact = false,
   className = '',
   children,
 }: {
@@ -208,6 +214,8 @@ export function Slide({
   tone?: 'light' | 'deep'
   photo?: string
   blooms?: BloomSpec[]
+  /** Jarak dalam lebih rapat, untuk halaman yang padat konten */
+  compact?: boolean
   className?: string
   children: ReactNode
 }) {
@@ -229,7 +237,11 @@ export function Slide({
 
       <BrandFrame color={frame} className="absolute inset-1.5 sm:inset-2 z-[2]" />
 
-      <div className={`relative z-[3] w-full px-[clamp(40px,7vw,128px)] py-[clamp(76px,9vw,144px)] ${className}`}>{children}</div>
+      <div
+        className={`relative z-[3] w-full ${compact ? 'px-[clamp(26px,5vw,88px)] py-[clamp(52px,5.5vw,84px)]' : 'px-[clamp(40px,7vw,128px)] py-[clamp(76px,9vw,144px)]'} ${className}`}
+      >
+        {children}
+      </div>
     </section>
   )
 }
